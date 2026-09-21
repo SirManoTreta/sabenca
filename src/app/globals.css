@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@theme inline {
+  --color-background: #ffffff;
+  --color-foreground: #172033;
+  --color-primary: #076ba5;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #edf5fb;
+  --color-muted: #f3f5f7;
+  --color-muted-foreground: #626c7c;
+  --color-border: #e0e6ed;
+  --color-accent: #f7943d;
+  --color-accent-foreground: #a8500b;
+  --font-sans: Arial, Helvetica, sans-serif;
+  --color-destructive: #ad2424;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #fff;
+  color: #172033;
+  font-family: Arial, Helvetica, sans-serif;
+}
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+::selection {
+  background: #c5e7fc;
+  color: #063b73;
+}
+.serif {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  color: #063b73;
+}
+.brand-symbol {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 36px;
+  background: #0796d2;
+  color: #fff;
+  border-radius: 11px 3px 11px 3px;
+  font:
+    bold 27px Arial,
+    sans-serif;
+  position: relative;
+}
+.brand-symbol > span {
+  position: absolute;
+  right: -5px;
+  top: -6px;
+  font-size: 15px;
+  color: #f7943d;
+}
+.brand-symbol-light {
+  background: #fff;
+  color: #063b73;
+}
+.campus-orbit {
+  border: 1px solid #ffffff2b;
+  border-radius: 50%;
+  position: absolute;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .entrance {
+    animation: entrance 0.4s ease-out both;
+  }
+  @keyframes entrance {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

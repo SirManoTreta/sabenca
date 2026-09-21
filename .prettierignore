@@ -1,0 +1,8 @@
+node_modules
+.next
+package-lock.json
+supabase/config.toml
+markdown/SABENCA_Guia_Inicial_Desenvolvimento.md
+markdown/SABENCA_Acesso_Institucional_Importacao_Layout.md
+playwright-report
+test-results
