@@ -5,6 +5,7 @@ import { MemberNav } from "@/components/layout/member-nav";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 export default async function CommunityLayout({
   children,
 }: {

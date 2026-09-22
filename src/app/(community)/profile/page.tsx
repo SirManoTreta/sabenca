@@ -1,17 +1,18 @@
-import { ModuleFoundation } from "@/components/layout/module-foundation";
-import { requireUser } from "@/services/session";
+import { getProfile } from "@/services/profile";
+import { ProfileView } from "@/components/profile/profile-view";
 export const metadata = { title: "Meu perfil" };
 export default async function ProfilePage() {
-  const { user } = await requireUser();
-  const name =
-    typeof user.user_metadata.name === "string"
-      ? user.user_metadata.name
-      : "estudante";
-  return (
-    <ModuleFoundation
-      title={`Boas-vindas, ${name}.`}
-      description="Seu acesso está confirmado. Este será o lugar para contar sua história, mostrar habilidades e compartilhar seus projetos."
-      next="A edição do perfil é a próxima etapa de desenvolvimento, conforme o guia do projeto."
-    />
-  );
+  const profile = await getProfile();
+  if (!profile)
+    return (
+      <div className="rounded-2xl bg-secondary p-8">
+        <h1 className="text-2xl font-bold text-primary">
+          Seu perfil ainda não está disponível.
+        </h1>
+        <p className="mt-3 text-muted-foreground">
+          Procure a instituição para verificar seu cadastro.
+        </p>
+      </div>
+    );
+  return <ProfileView profile={profile} own />;
 }

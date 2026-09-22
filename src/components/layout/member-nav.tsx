@@ -14,7 +14,7 @@ export function MemberNav() {
   return (
     <nav
       aria-label="Navegação da comunidade"
-      className="flex gap-1 overflow-x-auto py-2 md:gap-2"
+      className="grid grid-cols-2 gap-2 py-2 sm:flex"
     >
       {links.map(({ href, label, icon: Icon }) => (
         <Link
@@ -22,7 +22,7 @@ export function MemberNav() {
           key={href}
           aria-current={path.startsWith(href) ? "page" : undefined}
           className={cn(
-            "flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors sm:px-4",
+            "flex items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors sm:justify-start sm:px-4",
             path.startsWith(href)
               ? "bg-primary text-white"
               : "text-muted-foreground hover:bg-secondary",

@@ -45,6 +45,10 @@ test("legacy signup redirects; student and admin routes are protected", async ({
     "/marketplace",
     "/networks",
     "/profile",
+    "/profile/edit",
+    "/profile/projects/new",
+    "/profile/projects/11111111-1111-4111-8111-111111111111/edit",
+    "/users/aluno",
     "/connections",
   ]) {
     await page.goto(route);

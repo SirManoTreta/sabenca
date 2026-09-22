@@ -32,6 +32,7 @@ export const config = {
     "/marketplace/:path*",
     "/networks/:path*",
     "/profile/:path*",
+    "/users/:path*",
     "/connections/:path*",
   ],
 };

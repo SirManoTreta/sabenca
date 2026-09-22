@@ -1,6 +1,18 @@
-# Registro de desenvolvimento — 13/09/2026
+# Registro de desenvolvimento
 
-## Etapa atual: acesso institucional
+## 22/09/2026 — Fase 2: perfil acadêmico/social
+
+Implementados perfil real, edição de username/bio, pesquisa/criação/remoção de habilidades e interesses, avatar privado, CRUD de projetos com imagens e links e perfil da comunidade em `/users/[username]`. O fluxo institucional foi preservado. Nome, curso e semestre continuam sob controle institucional.
+
+A gravação de perfil e relações é transacional. A criação de catálogo fica no servidor, com normalização e índice único; ações restantes usam o cliente Supabase da sessão e RLS. URLs de imagens expiram em 5 minutos e o banco guarda apenas caminhos. DTOs sociais usam seleção explícita de campos.
+
+Migration `20260922124535_profile_phase.sql` aplicada ao Supabase: proteção das colunas institucionais, proibição de recriar/excluir o próprio perfil pela API e índices normalizados de habilidades/interesses. Nenhum registro foi excluído. A proposta inicial de consolidação de duplicados foi recusada pela revisão automática; a versão final interrompe a aplicação se houver conflitos. A consulta prévia confirmou ausência de duplicados.
+
+Lint, TypeScript, build de produção, 125 testes de aplicação/banco e 8 E2E passaram. O fluxo completo foi validado no Supabase real em desktop e celular contra o build local de produção. Os dados temporários foram removidos. O E2E detectou e confirmou a correção da edição de projeto sem nova imagem; a navegação móvel também passou a caber sem rolagem horizontal. Detalhes em `PERFIL_IMPLEMENTACAO.md`.
+
+Decisões, limites, testes e manutenção: [Perfil: implementação](PERFIL_IMPLEMENTACAO.md).
+
+## Histórico: acesso institucional
 
 Os registros abaixo descrevem a fundação anterior. A decisão de cadastro aberto com e-mail pessoal foi substituída pelo documento `SABENCA_Acesso_Institucional_Importacao_Layout.md`.
 
@@ -24,7 +36,7 @@ Configuração, limites e validação atual: `ACESSO_INSTITUCIONAL_IMPLEMENTACAO
 - Configurar SMTP próprio para o envio a alunos reais. Supabase, Auth, TLS e Redirect URLs locais já configurados.
 - Concluir o teste manual de recuperação de senha e a interação de bloqueio/restauração pela interface administrativa. Recebimento do link, ativação e novo login por RA foram confirmados pelo titular; matrícula ativa, perfil e consumo da prova foram conferidos no banco. Login administrativo, navegação administrativa, importação e RLS no bloqueio/restauração já validados no serviço remoto.
 - Repositório remoto: [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), preparado para o primeiro envio em 21/09/2026. Credenciais locais, arquivos gerados e ZIP de backup ficam fora do versionamento.
-- Implementar perfil após a validação de autenticação.
+- Perfil implementado na Fase 2. Próximos módulos seguem os respectivos guias de desenvolvimento.
 
 ## Histórico: validação da fundação anterior
 

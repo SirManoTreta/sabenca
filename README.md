@@ -1,6 +1,6 @@
 # SABENÇA · Comunidade FATECE
 
-Plataforma universitária em Next.js, React, TypeScript e Supabase. A etapa atual implementa **acesso institucional pré-autorizado**, importação administrativa de alunos e identidade visual azul/branco.
+Plataforma universitária em Next.js, React, TypeScript e Supabase. Implementa **acesso institucional pré-autorizado**, importação administrativa de alunos e **perfil acadêmico/social** com portfólio.
 
 ## O que funciona no código
 
@@ -8,7 +8,9 @@ Plataforma universitária em Next.js, React, TypeScript e Supabase. A etapa atua
 - Administração protegida, importação .xlsx com validação e prévia, histórico, bloqueio e restauração de acesso.
 - Registro institucional privado; CPF armazenado como HMAC. RLS exige vínculo ativo, além da sessão Auth.
 - Página pública e autenticação adaptadas à comunidade FATECE, com marca SABENÇA.
-- Perfil mínimo na ativação. Edição completa do Perfil, Marketplace, Networks e Conexões continuam para as próximas fases.
+- Perfil real, username único, bio, habilidades/interesses, avatar privado e projetos com imagem e links.
+- Perfil da comunidade em `/users/[username]`, acessível somente a membros ativos. Nome, curso e semestre são protegidos pela instituição.
+- Marketplace, Networks e Conexões continuam para as próximas fases.
 
 Não existe cadastro público. A rota antiga redireciona para Primeiro acesso.
 
@@ -54,5 +56,6 @@ Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na
 - [Requisitos da etapa institucional](markdown/SABENCA_Acesso_Institucional_Importacao_Layout.md)
 - [Implementação e configuração](markdown/ACESSO_INSTITUCIONAL_IMPLEMENTACAO.md)
 - [Histórico de desenvolvimento](markdown/DESENVOLVIMENTO.md)
+- [Perfil: implementação e testes](markdown/PERFIL_IMPLEMENTACAO.md)
 
-O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), sem deploy da aplicação. O Supabase já está conectado: quatro migrações aplicadas, 18 tabelas com RLS, três buckets privados, primeiro administrador autorizado e um aluno fictício importado para teste. O titular confirmou recebimento do e-mail, ativação e login por RA/senha. Consulte o estado atualizado e as pendências de produção no documento de implementação.
+O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), sem deploy da aplicação. O Supabase está conectado: cinco migrações aplicadas, 18 tabelas com RLS, três buckets privados, primeiro administrador autorizado e um aluno fictício importado para teste. O titular confirmou recebimento do e-mail, ativação e login por RA/senha. Consulte os documentos de implementação para validações e pendências de produção.
