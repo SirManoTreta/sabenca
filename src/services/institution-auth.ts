@@ -18,14 +18,14 @@ type AccessStudent = {
   status: string;
   birth_date: string;
   name: string;
-  course: string | null;
+  course_id: string | null;
   semester: number | null;
 };
 export async function studentByRa(ra: string) {
   const sql = database();
   const [student] = await sql<
     AccessStudent[]
-  >`select id,auth_user_id,email,status,birth_date::text,name,course,semester from private.institution_students where institution_id=${INSTITUTION_ID} and ra=${ra}`;
+  >`select id,auth_user_id,email,status,birth_date::text,name,course_id,semester from private.institution_students where institution_id=${INSTITUTION_ID} and ra=${ra}`;
   return student;
 }
 export async function permitAttempt(scope: string, subject: string) {
@@ -125,7 +125,7 @@ export async function activationFor(user: User) {
   const sql = database();
   const [student] = await sql<
     AccessStudent[]
-  >`select s.id,s.auth_user_id,s.email,s.status,s.birth_date::text,s.name,s.course,s.semester from private.institution_students s join private.activation_challenges c on c.student_id=s.id where s.institution_id=${INSTITUTION_ID} and s.status='pending' and s.auth_user_id=${user.id} and s.email=${user.email?.toLowerCase() || ""} and c.auth_user_id=${user.id} and c.token_hash=${authFingerprint(token)} and c.expires_at>now()`;
+  >`select s.id,s.auth_user_id,s.email,s.status,s.birth_date::text,s.name,s.course_id,s.semester from private.institution_students s join private.activation_challenges c on c.student_id=s.id where s.institution_id=${INSTITUTION_ID} and s.status='pending' and s.auth_user_id=${user.id} and s.email=${user.email?.toLowerCase() || ""} and c.auth_user_id=${user.id} and c.token_hash=${authFingerprint(token)} and c.expires_at>now()`;
   return student ?? null;
 }
 export async function activateStudent(user: User) {
@@ -136,10 +136,10 @@ export async function activateStudent(user: User) {
   await sql.begin(async (tx) => {
     const [student] = await tx<
       AccessStudent[]
-    >`select s.id,s.auth_user_id,s.email,s.status,s.birth_date::text,s.name,s.course,s.semester from private.institution_students s join private.activation_challenges c on c.student_id=s.id join auth.users u on u.id=s.auth_user_id where s.institution_id=${INSTITUTION_ID} and s.status='pending' and s.auth_user_id=${user.id} and s.email=${user.email?.toLowerCase() || ""} and c.token_hash=${authFingerprint(token)} and c.auth_user_id=${user.id} and c.expires_at>now() and u.email_confirmed_at is not null and (u.banned_until is null or u.banned_until<now()) for update of s,c`;
+    >`select s.id,s.auth_user_id,s.email,s.status,s.birth_date::text,s.name,s.course_id,s.semester from private.institution_students s join private.activation_challenges c on c.student_id=s.id join auth.users u on u.id=s.auth_user_id where s.institution_id=${INSTITUTION_ID} and s.status='pending' and s.auth_user_id=${user.id} and s.email=${user.email?.toLowerCase() || ""} and c.token_hash=${authFingerprint(token)} and c.auth_user_id=${user.id} and c.expires_at>now() and u.email_confirmed_at is not null and (u.banned_until is null or u.banned_until<now()) for update of s,c`;
     if (!student) throw new Error("Activation expired or blocked");
     await tx`update private.institution_students set status='active',activated_at=now() where id=${student.id}`;
-    await tx`insert into public.profiles (user_id,name,course,semester,institution) values (${user.id},${student.name},${student.course},${student.semester},'FATECE') on conflict (user_id) do nothing`;
+    await tx`insert into public.profiles (user_id,name,course_id,semester,institution,institution_id) values (${user.id},${student.name},${student.course_id},${student.semester},'FATECE',${INSTITUTION_ID}) on conflict (user_id) do nothing`;
     await tx`delete from private.activation_challenges where student_id=${student.id}`;
   });
   (await cookies()).delete(ACTIVATION_COOKIE);

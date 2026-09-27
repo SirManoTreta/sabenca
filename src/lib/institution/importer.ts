@@ -161,7 +161,10 @@ export async function parseStudentWorkbook(buffer: Buffer, fileName: string) {
       line,
       ra: String(values.ra ?? "").slice(0, 30),
       name: String(values.nome ?? "").slice(0, 100),
-      course: null,
+      course:
+        String(values.curso ?? "")
+          .trim()
+          .slice(0, 120) || null,
       semester: null,
       errors,
     };

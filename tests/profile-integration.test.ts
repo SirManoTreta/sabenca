@@ -32,7 +32,10 @@ beforeAll(async () => {
     grant select,insert,update,delete on storage.objects to authenticated;
     create function storage.foldername(text) returns text[] language sql immutable as $$select string_to_array($1,'/')$$;`);
   const migrations = readdirSync("supabase/migrations")
-    .filter((file) => file.endsWith(".sql"))
+    .filter(
+      (file) =>
+        file.endsWith(".sql") && file <= "20260922124535_profile_phase.sql",
+    )
     .sort();
   for (const file of migrations.filter(
     (file) => !file.endsWith("_profile_phase.sql"),

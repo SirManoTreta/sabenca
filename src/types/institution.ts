@@ -15,6 +15,7 @@ export type PreviewLine = {
   ra: string;
   name: string;
   course: string | null;
+  course_id?: string | null;
   semester: number | null;
   errors: string[];
 };

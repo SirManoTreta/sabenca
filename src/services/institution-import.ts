@@ -5,13 +5,45 @@ import { fileDigest } from "@/lib/institution/crypto";
 import { parseStudentWorkbook } from "@/lib/institution/importer";
 import { issueReceipt, verifyReceipt } from "@/lib/institution/receipt";
 import type { ImportStudent, PreviewLine } from "@/types/institution";
-type Conflict = { ra: string; email: string; cpf_fingerprint: string };
-function markConflicts(
+import { courseKey } from "@/lib/validations/course";
+import type { Course } from "@/types/course";
+type ResolvedStudent = ImportStudent & { course_id: string | null };
+
+function resolveCourses(
   students: ImportStudent[],
+  lines: PreviewLine[],
+  courses: Course[],
+) {
+  const catalog = new Map(
+    courses.map((course) => [course.normalized_name, course]),
+  );
+  const valid: ResolvedStudent[] = [];
+  for (const student of students) {
+    const course = student.course
+      ? catalog.get(courseKey(student.course))
+      : undefined;
+    const line = lines.find((row) => row.line === student.line)!;
+    if (student.course && !course) {
+      line.errors.push(
+        `Curso "${student.course}" não está cadastrado na instituição. Cadastre o curso antes de importar este aluno.`,
+      );
+    } else if (course?.status === "inactive") {
+      line.errors.push("O curso informado está inativo.");
+    } else {
+      line.course = course?.name ?? null;
+      line.course_id = course?.id ?? null;
+      valid.push({ ...student, course_id: course?.id ?? null });
+    }
+  }
+  return valid;
+}
+type Conflict = { ra: string; email: string; cpf_fingerprint: string };
+function markConflicts<T extends ImportStudent>(
+  students: T[],
   lines: PreviewLine[],
   existing: Conflict[],
 ) {
-  const accepted: ImportStudent[] = [];
+  const accepted: T[] = [];
   for (const student of students) {
     const conflict = existing.find(
       (row) =>
@@ -41,7 +73,14 @@ export async function previewImport(
         Conflict[]
       >`select ra,email,cpf_fingerprint from private.institution_students where institution_id=${INSTITUTION_ID} and (ra in ${sql(students.map((v) => v.ra))} or email in ${sql(students.map((v) => v.email))} or cpf_fingerprint in ${sql(students.map((v) => v.cpf_fingerprint))})`
     : [];
-  const valid = markConflicts(students, lines, existing);
+  const courses = await sql<
+    Course[]
+  >`select id,name,normalized_name,status from public.courses where institution_id=${INSTITUTION_ID}`;
+  const valid = markConflicts(
+    resolveCourses(students, lines, courses),
+    lines,
+    existing,
+  );
   return {
     fileName: fileName.slice(0, 180),
     total: lines.length,
@@ -74,7 +113,15 @@ export async function confirmImport(
           Conflict[]
         >`select ra,email,cpf_fingerprint from private.institution_students where institution_id=${INSTITUTION_ID} and (ra in ${tx(students.map((v) => v.ra))} or email in ${tx(students.map((v) => v.email))} or cpf_fingerprint in ${tx(students.map((v) => v.cpf_fingerprint))})`
       : [];
-    const accepted = markConflicts(students, lines, existing);
+    // Hold catalog rows until commit: a course cannot become inactive between validation and insert.
+    const courses = await tx<
+      Course[]
+    >`select id,name,normalized_name,status from public.courses where institution_id=${INSTITUTION_ID} order by id for share`;
+    const accepted = markConflicts(
+      resolveCourses(students, lines, courses),
+      lines,
+      existing,
+    );
     if (fileDigest(Buffer.from(JSON.stringify(lines))) !== receipt.report)
       throw new Error(
         "Os registros mudaram desde a prévia. Analise o arquivo novamente.",
@@ -84,7 +131,7 @@ export async function confirmImport(
     const [batch] =
       await tx`insert into private.import_batches (institution_id,file_name,uploaded_by,receipt_id,total_rows,valid_rows,invalid_rows) values (${INSTITUTION_ID},${fileName.slice(0, 180)},${actor},${receipt.id},${lines.length},${accepted.length},${lines.length - accepted.length}) returning id`;
     for (const student of accepted)
-      await tx`insert into private.institution_students (institution_id,ra,name,email,phone,birth_date,cpf_fingerprint,course,semester,import_batch_id) values (${INSTITUTION_ID},${student.ra},${student.name},${student.email},${student.phone},${student.birth_date},${student.cpf_fingerprint},${student.course},${student.semester},${batch.id})`;
+      await tx`insert into private.institution_students (institution_id,ra,name,email,phone,birth_date,cpf_fingerprint,course_id,semester,import_batch_id) values (${INSTITUTION_ID},${student.ra},${student.name},${student.email},${student.phone},${student.birth_date},${student.cpf_fingerprint},${student.course_id},${student.semester},${batch.id})`;
     return accepted.length;
   });
 }

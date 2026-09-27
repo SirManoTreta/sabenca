@@ -2,7 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import postgres from "postgres";
 import ExcelJS from "exceljs";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
 import type { User } from "@supabase/supabase-js";
 vi.mock("server-only", () => ({}));
@@ -60,15 +60,15 @@ beforeAll(async () => {
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);alter table storage.objects enable row level security;
  create function storage.foldername(text) returns text[] language sql immutable as $$select string_to_array($1,'/')$$;`);
-  for (const file of [
-    "20260913232140_initial_schema.sql",
-    "20260914013440_institutional_access.sql",
-    "20260916014556_restrict_rls_auto_enable_execution.sql",
-    "20260916015001_authorize_admin_bootstrap.sql",
-  ])
+  for (const file of readdirSync("supabase/migrations")
+    .filter((name) => name.endsWith(".sql"))
+    .sort())
     await db.exec(readFileSync("supabase/migrations/" + file, "utf8"));
   await db.exec(
     `insert into auth.users(id,email,email_confirmed_at) values ('${admin}','admin@example.test',now());insert into private.admin_users(user_id,institution_id) values ('${admin}','fatece');`,
+  );
+  await db.exec(
+    "insert into public.courses(institution_id,name) values ('fatece','Computação')",
   );
   server = new PGLiteSocketServer({ db, port: 0, host: "127.0.0.1" });
   await server.start();

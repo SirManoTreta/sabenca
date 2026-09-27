@@ -40,10 +40,12 @@ const test = base.extend<{ student: Student }>({
     const ra = `e2e${token.slice(0, 16)}`;
     const username = `e2e_${token.slice(0, 16)}`;
     const password = `${randomUUID()}Aa1!`;
+    const courseId = randomUUID();
     let userId: string | undefined;
     try {
-      await sql`insert into private.institution_students(id,institution_id,ra,name,email,phone,birth_date,cpf_fingerprint,course,semester)
-        values (${studentId},'fatece',${ra},'Estudante de teste Fase 2',${email},'5511999999999','2000-01-01',${createHash("sha256").update(token).digest("hex")},'Ciência da Computação',8)`;
+      await sql`insert into public.courses(id,institution_id,name) values (${courseId},'fatece',${`Curso E2E ${token}`})`;
+      await sql`insert into private.institution_students(id,institution_id,ra,name,email,phone,birth_date,cpf_fingerprint,course_id,semester)
+        values (${studentId},'fatece',${ra},'Estudante de teste Fase 2',${email},'5511999999999','2000-01-01',${createHash("sha256").update(token).digest("hex")},${courseId},8)`;
       const created = await admin.auth.admin.createUser({
         email,
         password,
@@ -53,7 +55,7 @@ const test = base.extend<{ student: Student }>({
         throw new Error("Unable to create isolated Auth fixture");
       userId = created.data.user.id;
       await sql`update private.institution_students set auth_user_id=${userId},status='active',activated_at=now() where id=${studentId}`;
-      await sql`insert into public.profiles(user_id,name,course,semester,institution) values (${userId},'Estudante de teste Fase 2','Ciência da Computação',8,'FATECE')`;
+      await sql`insert into public.profiles(user_id,name,course_id,semester,institution,institution_id) values (${userId},'Estudante de teste Fase 2',${courseId},8,'FATECE','fatece')`;
       await provide({
         id: userId,
         ra,
@@ -89,6 +91,7 @@ const test = base.extend<{ student: Student }>({
         const removed = await admin.auth.admin.deleteUser(userId);
         if (removed.error) throw removed.error;
       }
+      await sql`delete from public.courses where id=${courseId}`;
       // The only newly created catalog names in this fixture carry its random ID.
       await sql`delete from public.skills where name=${`Skill ${token.slice(0, 16)}`} and not exists (select 1 from public.profile_skills where skill_id=skills.id)`;
       await sql`delete from public.interests where name=${`Interesse ${token.slice(0, 16)}`} and not exists (select 1 from public.profile_interests where interest_id=interests.id)`;

@@ -25,7 +25,7 @@ export default async function StudentsPage({
   const sql = database();
   const students = await sql<
     StudentListItem[]
-  >`select id,ra,name,course,semester,status from private.institution_students where institution_id=${INSTITUTION_ID} and (ra ilike ${"%" + q + "%"} or name ilike ${"%" + q + "%"}) order by created_at desc,id limit 51 offset ${Math.floor(page - 1) * 50}`;
+  >`select s.id,s.ra,s.name,c.name as course,s.semester,s.status from private.institution_students s left join public.courses c on c.id=s.course_id where s.institution_id=${INSTITUTION_ID} and (s.ra ilike ${"%" + q + "%"} or s.name ilike ${"%" + q + "%"}) order by s.created_at desc,s.id limit 51 offset ${Math.floor(page - 1) * 50}`;
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">

@@ -1,5 +1,13 @@
 # Registro de desenvolvimento
 
+## 27/09/2026 — Fase 3: cursos, importação e Networks
+
+Implementados catálogo institucional administrável, referências de curso em alunos e perfis, modelo Excel gerado pela aplicação, validação de curso ativo na prévia/confirmação, relatório CSV de erros e Networks com busca, filtros combinados, paginação e avatares privados.
+
+A migration `20260927030010_courses_networks.sql` foi aplicada após autorização explícita do titular. Preserva os textos antigos, associa as referências e aborta conflitos. A auditoria confirmou o mesmo aluno e perfil existentes, um curso, zero divergências, RLS ativa e catálogo sem escrita pelo navegador. Migrations anteriores não foram editadas. A revisão automática havia bloqueado a primeira tentativa por exigir autorização para alterar o banco compartilhado.
+
+Lint, TypeScript, 153 testes locais de banco/aplicação e build passaram. Os 12 cenários E2E foram aprovados em desktop e celular contra o build de produção: oito na execução completa e os quatro restantes na repetição após ajustes nas verificações de imagem/texto. Os seis cenários autenticados usaram dados fictícios temporários no Supabase real. A revisão visual conferiu Networks e administração; o GitHub Actions valida o commit enviado. Detalhes, limites e comandos em [Networks: implementação](NETWORKS_IMPLEMENTACAO.md).
+
 ## 22/09/2026 — Fase 2: perfil acadêmico/social
 
 Implementados perfil real, edição de username/bio, pesquisa/criação/remoção de habilidades e interesses, avatar privado, CRUD de projetos com imagens e links e perfil da comunidade em `/users/[username]`. O fluxo institucional foi preservado. Nome, curso e semestre continuam sob controle institucional.

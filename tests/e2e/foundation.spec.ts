@@ -58,6 +58,8 @@ test("legacy signup redirects; student and admin routes are protected", async ({
     "/admin/alunos",
     "/admin/alunos/importar",
     "/admin/alunos/importacoes",
+    "/admin/cursos",
+    "/admin/alunos/modelo",
   ]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/auth\/admin/);

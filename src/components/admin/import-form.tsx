@@ -9,6 +9,7 @@ import {
 import { importStudents } from "@/app/admin/alunos/actions";
 import { Button } from "@/components/ui/button";
 import type { ImportState } from "@/types/institution";
+import { importErrorReport } from "@/lib/institution/error-report";
 export function ImportForm() {
   const [file, setFile] = useState<File | null>(null);
   const [reviewedFile, setReviewedFile] = useState<File | null>(null);
@@ -143,6 +144,27 @@ export function ImportForm() {
               </tbody>
             </table>
           </div>
+          {preview.invalid > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-5"
+              onClick={() => {
+                const url = URL.createObjectURL(
+                  new Blob([importErrorReport(preview.lines)], {
+                    type: "text/csv;charset=utf-8",
+                  }),
+                );
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "erros-importacao-sabenca.csv";
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}
+            >
+              Baixar relatório de erros
+            </Button>
+          )}
           <input type="hidden" name="receipt" value={preview.receipt} />
           <label className="mt-6 flex items-start gap-3 text-sm leading-6">
             <input

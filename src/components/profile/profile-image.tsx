@@ -6,10 +6,12 @@ export function ProfileImage({
   src,
   name,
   project = false,
+  compact = false,
 }: {
   src: string | null;
   name: string;
   project?: boolean;
+  compact?: boolean;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
   const initials = name
@@ -23,7 +25,9 @@ export function ProfileImage({
       className={
         project
           ? "grid aspect-[16/9] place-items-center overflow-hidden bg-secondary text-primary"
-          : "grid size-24 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white bg-[#dceffc] text-3xl font-bold text-[#063b73] shadow-sm sm:size-32"
+          : compact
+            ? "grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dceffc] text-xl font-bold text-[#063b73]"
+            : "grid size-24 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white bg-[#dceffc] text-3xl font-bold text-[#063b73] shadow-sm sm:size-32"
       }
     >
       {src && failed !== src ? (

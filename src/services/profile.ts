@@ -11,7 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Explicit selections keep Auth and private institutional fields out of the DTO.
 export const PROFILE_COLUMNS =
-  "id,username,name,bio,course,semester,institution,avatar_url";
+  "id,username,name,bio,courses(name),semester,institution,avatar_url";
 export const PROJECT_COLUMNS =
   "id,title,description,image_url,project_url,repository_url";
 export async function signedImage(
@@ -60,10 +60,10 @@ export async function getProfile(
   if (error)
     throw new Error("Não foi possível carregar o perfil. Tente novamente.");
   if (!data) return null;
-  const profile = data as Omit<
+  const profile = data as unknown as Omit<
     SocialProfile,
-    "skills" | "interests" | "projects"
-  >;
+    "skills" | "interests" | "projects" | "course"
+  > & { courses: { name: string } | null };
   const [skills, interests, projects, avatar] = await Promise.all([
     client
       .from("profile_skills")
@@ -91,7 +91,7 @@ export async function getProfile(
     username: profile.username,
     name: profile.name,
     bio: profile.bio,
-    course: profile.course,
+    course: profile.courses?.name ?? null,
     semester: profile.semester,
     institution: profile.institution,
     avatar_url: avatar,

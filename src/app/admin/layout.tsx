@@ -29,6 +29,7 @@ export default async function AdminLayout({
           className="mx-auto flex max-w-7xl gap-6 overflow-x-auto px-6 pb-4 text-sm"
         >
           <Link href="/admin/alunos">Alunos cadastrados</Link>
+          <Link href="/admin/cursos">Cursos</Link>
           <Link href="/admin/alunos/importar">Importar planilha</Link>
           <Link href="/admin/alunos/importacoes">Histórico de importações</Link>
           <Link href="/auth/update-password">Alterar senha</Link>

@@ -31,7 +31,7 @@ beforeEach(() => {
     name: "Nome institucional",
     username: "alice",
     bio: null,
-    course: "Computação",
+    courses: { name: "Computação" },
     semester: 8,
     institution: "FATECE",
     avatar_url: "auth-id/image.png",
@@ -86,6 +86,7 @@ describe("profile reads and privacy", () => {
   it("loads own identity from profiles and only serializes social fields", async () => {
     const result = await getProfile();
     expect(result?.name).toBe("Nome institucional");
+    expect(result?.course).toBe("Computação");
     expect(state.filters).toContainEqual(["user_id", "auth-id"]);
     for (const field of Object.keys(privateFields)) {
       expect(result).not.toHaveProperty(field);
