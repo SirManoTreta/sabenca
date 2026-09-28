@@ -1,5 +1,21 @@
 # Registro de desenvolvimento
 
+## 28/09/2026 — Contas persistentes para teste manual
+
+Por solicitação do titular, foram criadas duas contas fictícias de estudante, Ana Conexões (teste) e Bruno Conexões (teste), com RAs `TESTE4001` e `TESTE4002`. Elas permanecem disponíveis para teste manual e não fazem parte da limpeza dos fixtures E2E. Credenciais e IDs ficam somente em `.env.contas-teste.json`, ignorado pelo Git. Acesso estudantil ativo, ausência de privilégio administrativo e visibilidade mútua dos perfis foram verificados.
+
+A entrega da Fase 4 foi organizada em commits de banco/serviço, interface/testes e documentação. O envio ao GitHub e a execução do workflow remoto continuam pendentes.
+
+## 27/09/2026 — Fase 4: conexões entre estudantes
+
+Implementados `/connections`, envio pelo Networks e pelo perfil, aceite, recusa, cancelamento e remoção confirmada. Estados no Networks são consultados em lote; avatares das três seções usam uma assinatura coletiva. DTOs preservam a separação entre dados sociais e institucionais privados. Não há contagem pública de conexões ou mecanismo de popularidade.
+
+A migration `20260927044938_connections_phase.sql` foi aplicada após autorização explícita do titular. Audita rejeições antigas antes de restringir estados, mantém a unicidade do par, preserva dados e recria policies para participantes ativos. A auditoria confirmou um aluno, um perfil e zero conexões antes e depois. O advisor SQL de segurança não encontrou avisos ou erros.
+
+Lint, TypeScript, 188 testes locais e build passaram. Os 18 cenários E2E foram aprovados em desktop e celular contra produção local e Supabase real: 17 na execução completa e um em repetição isolada após falha no login inicial. Os seis cenários de Conexões incluem API real e corrida de solicitações inversas. A revisão visual confirmou ações e confirmação de remoção; a auditoria final não encontrou contas, matrículas, perfis, cursos temporários ou imagens órfãs. Permanecem o aluno e o perfil preexistentes e zero conexões.
+
+A configuração Playwright passou a usar porta própria no modo de produção, evitando reutilização de um servidor de desenvolvimento aberto e resultados incorretos nas verificações de cache. Os commits foram criados localmente em 28/09; o workflow remoto ainda depende do envio ao GitHub. Arquitetura, comandos, limites e resultados: [Conexões: implementação](CONEXOES_IMPLEMENTACAO.md).
+
 ## 27/09/2026 — Fase 3: cursos, importação e Networks
 
 Implementados catálogo institucional administrável, referências de curso em alunos e perfis, modelo Excel gerado pela aplicação, validação de curso ativo na prévia/confirmação, relatório CSV de erros e Networks com busca, filtros combinados, paginação e avatares privados.

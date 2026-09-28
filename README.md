@@ -12,7 +12,8 @@ Plataforma universitária em Next.js, React, TypeScript e Supabase. Implementa *
 - Perfil da comunidade em `/users/[username]`, acessível somente a membros ativos. Nome, curso e semestre são protegidos pela instituição.
 - Catálogo de cursos em `/admin/cursos`, modelo oficial Excel, importação com validação institucional e relatório de erros.
 - Networks com busca por nome, username e habilidade; filtros combinados, paginação e cards com avatar privado.
-- Marketplace e Conexões continuam para as próximas fases.
+- Conexões mútuas: solicitações, aceite, recusa, cancelamento e remoção, integradas ao Networks e ao perfil.
+- Marketplace continua para a próxima fase.
 
 Não existe cadastro público. A rota antiga redireciona para Primeiro acesso.
 
@@ -60,5 +61,6 @@ Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na
 - [Histórico de desenvolvimento](markdown/DESENVOLVIMENTO.md)
 - [Perfil: implementação e testes](markdown/PERFIL_IMPLEMENTACAO.md)
 - [Networks, cursos e modelo Excel](markdown/NETWORKS_IMPLEMENTACAO.md)
+- [Conexões: arquitetura, segurança e testes](markdown/CONEXOES_IMPLEMENTACAO.md)
 
-O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), sem deploy da aplicação. O Supabase está conectado, com seis migrations aplicadas, três buckets privados e acesso institucional validado. A migração da Fase 3 preservou os registros existentes e os associou ao catálogo de cursos. Consulte os documentos de implementação para validações e pendências de produção.
+O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), sem deploy da aplicação. O Supabase está conectado, com sete migrations aplicadas, três buckets privados e acesso institucional validado. A Fase 4 preserva os registros existentes e restringe conexões a estudantes ativos. Consulte os documentos de implementação para validações e pendências de produção.
