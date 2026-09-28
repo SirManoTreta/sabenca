@@ -70,7 +70,7 @@ beforeAll(async () => {
     .filter((file) => file.endsWith(".sql"))
     .sort();
   for (const file of migrations.filter(
-    (name) => !name.endsWith("_courses_networks.sql"),
+    (name) => name < "20260927030010_courses_networks.sql",
   ))
     await db.exec(readFileSync("supabase/migrations/" + file, "utf8"));
   await db.query(
@@ -142,6 +142,14 @@ beforeAll(async () => {
     31,
   );
   await db.exec("begin;" + migration + "commit;");
+  for (const file of migrations.filter(
+    (name) => name > "20260927030010_courses_networks.sql",
+  ))
+    await db.exec(
+      "begin;" +
+        readFileSync("supabase/migrations/" + file, "utf8") +
+        "commit;",
+    );
   await db.exec(`insert into public.profile_skills(profile_id,skill_id) select '${uid(1)}',id from public.skills where name='React';
     insert into public.profile_skills(profile_id,skill_id) select '${uid(2)}',id from public.skills where name='Python';
     insert into public.profile_interests(profile_id,interest_id) select '${uid(1)}',id from public.interests where name='Jogos';`);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ProfileImage } from "@/components/profile/profile-image";
+import { ConnectionActions } from "@/components/connections/connection-actions";
 import type { NetworkStudent } from "@/types/networks";
 import type { ProfileLabel } from "@/types/profile";
 function Labels({
@@ -78,6 +79,13 @@ export function StudentCard({ student }: { student: NetworkStudent }) {
           Ver perfil
         </Link>
       </Button>
+      <div className="mt-3">
+        <ConnectionActions
+          state={student.connection}
+          targetProfileId={student.id}
+          name={student.name}
+        />
+      </div>
     </article>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { database } from "@/lib/institution/database";
 import { INSTITUTION_ID } from "@/lib/institution/config";
 import { requireUser } from "@/services/session";
+import { connectionStatesFor } from "@/services/connections";
 import {
   networkFiltersSchema,
   NETWORK_PAGE_SIZE,
@@ -54,7 +55,7 @@ export async function searchNetworks(
     const [result] = await sql<
       {
         total: number;
-        students: Omit<NetworkStudent, "skills" | "interests">[];
+        students: Omit<NetworkStudent, "skills" | "interests" | "connection">[];
       }[]
     >`
       with matches as materialized (
@@ -79,6 +80,7 @@ export async function searchNetworks(
       select (select count(*)::integer from matches) as total,
         coalesce((select jsonb_agg(to_jsonb(paged) order by name,id) from paged), '[]'::jsonb) as students`;
     const ids = result.students.map((student) => student.id);
+    const connectionStates = await connectionStatesFor(sql, ids);
     type Relation = ProfileLabel & { profile_id: string };
     const skillRows = ids.length
       ? await sql<
@@ -109,6 +111,7 @@ export async function searchNetworks(
         avatar_url: student.avatar_url,
         skills: labelsFor(skillRows, student.id),
         interests: labelsFor(interestRows, student.id),
+        connection: connectionStates.get(student.id) ?? { kind: "none" },
       })),
     };
   });

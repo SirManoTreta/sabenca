@@ -1,4 +1,5 @@
 import type { ProfileLabel } from "./profile";
+import type { ConnectionState } from "./connections";
 export type NetworkStudent = {
   id: string;
   username: string;
@@ -9,6 +10,7 @@ export type NetworkStudent = {
   avatar_url: string | null;
   skills: ProfileLabel[];
   interests: ProfileLabel[];
+  connection: ConnectionState;
 };
 export type NetworkCatalogs = {
   courses: ProfileLabel[];

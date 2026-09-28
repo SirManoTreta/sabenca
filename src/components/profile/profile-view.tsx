@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { ProfileImage } from "./profile-image";
 import { ProjectCard } from "./project-card";
 import type { SocialProfile, ProfileLabel } from "@/types/profile";
+import type { ConnectionState } from "@/types/connections";
+import { ConnectionActions } from "@/components/connections/connection-actions";
 
 function Labels({
   title,
@@ -46,9 +48,11 @@ function Labels({
 export function ProfileView({
   profile,
   own = false,
+  connection,
 }: {
   profile: SocialProfile;
   own?: boolean;
+  connection?: ConnectionState;
 }) {
   return (
     <div className="entrance space-y-8">
@@ -96,6 +100,15 @@ export function ProfileView({
               </Button>
             )}
           </div>
+          {!own && connection && (
+            <div className="mt-6">
+              <ConnectionActions
+                state={connection}
+                targetProfileId={profile.id}
+                name={profile.name}
+              />
+            </div>
+          )}
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground">
             <p className="flex items-start gap-2">
               <GraduationCap size={18} className="shrink-0 text-primary" />{" "}
