@@ -1,12 +1,13 @@
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Uploads pass through a Server Action with multipart overhead.
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const IMAGE_SIZE_ERROR = "A imagem deve ter até 4 MiB.";
 export const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
 
 // Inspect the bytes as well as the declared MIME type; never trust the filename.
 export async function validateImage(value: FormDataEntryValue | null) {
   if (!(value instanceof File) || !value.size)
     return { error: "Escolha uma imagem." };
-  if (value.size > MAX_IMAGE_BYTES)
-    return { error: "A imagem deve ter até 5 MiB." };
+  if (value.size > MAX_IMAGE_BYTES) return { error: IMAGE_SIZE_ERROR };
   const bytes = new Uint8Array(await value.arrayBuffer());
   const matches = (signature: number[], offset = 0) =>
     signature.every((byte, i) => bytes[offset + i] === byte);

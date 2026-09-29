@@ -2,7 +2,11 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { deleteProject, saveProject } from "@/app/(community)/profile/actions";
-import { IMAGE_ACCEPT } from "@/lib/validations/image";
+import {
+  IMAGE_ACCEPT,
+  IMAGE_SIZE_ERROR,
+  MAX_IMAGE_BYTES,
+} from "@/lib/validations/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldError, FormFeedback } from "./form-feedback";
@@ -132,11 +136,20 @@ export function ProjectForm({ project }: { project?: SocialProject }) {
               name="image"
               type="file"
               accept={IMAGE_ACCEPT}
+              onChange={(event) => {
+                const input = event.currentTarget;
+                input.setCustomValidity(
+                  (input.files?.[0]?.size ?? 0) > MAX_IMAGE_BYTES
+                    ? IMAGE_SIZE_ERROR
+                    : "",
+                );
+                input.reportValidity();
+              }}
               className="block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-primary"
               aria-describedby="image-help"
             />
             <p id="image-help" className="text-xs text-muted-foreground">
-              JPEG, PNG ou WEBP. Até 5 MiB. Uma nova imagem substitui a
+              JPEG, PNG ou WEBP. Até 4 MiB. Uma nova imagem substitui a
               anterior.
             </p>
             {project?.image_url && (

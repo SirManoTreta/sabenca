@@ -107,7 +107,7 @@ export async function recoverPassword(
           student.email,
           {
             redirectTo:
-              appOrigin() + "/auth/callback?next=/auth/update-password",
+              (await appOrigin()) + "/auth/callback?next=/auth/update-password",
           },
         );
         if (error) console.warn("SABENCA_RECOVERY_DELIVERY_FAILED");

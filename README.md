@@ -19,7 +19,7 @@ Não existe cadastro público. A rota antiga redireciona para Primeiro acesso.
 
 ## Executar localmente
 
-Requisito: Node.js 22 ou superior; desenvolvido com Node.js 24.
+Requisito: Node.js 24, conforme `.nvmrc` e `package.json`.
 
 ```powershell
 npm ci
@@ -50,6 +50,17 @@ npm run test:e2e
 
 Testes de importação e ativação executam PostgreSQL real em PGlite, inclusive conexões TCP e transações do cliente Postgres.js. As respostas Supabase Auth e a entrega de e-mail são simuladas nos testes; a integração hospedada/SMTP exige credenciais e validação própria.
 
+## Ambientes
+
+| Ambiente        | Branch                  | Hospedagem planejada | Banco         |
+| --------------- | ----------------------- | -------------------- | ------------- |
+| Desenvolvimento | `feature/*` / `codex/*` | Local/Preview        | Supabase DEV  |
+| Staging         | `develop`               | Vercel Preview       | Supabase DEV  |
+| Produção        | `main`                  | Vercel Production    | Supabase PROD |
+
+DEV e PROD possuem projetos separados. Projeto Vercel criado e conectado ao GitHub. Variáveis de Production e Preview cadastradas conforme informado pelo responsável; primeiro Preview de `develop` em preparação. `NEXT_PUBLIC_APP_URL` permanece ausente em Preview até revisão da URL real, sem bloquear o build.
+Consulte [Hospedagem e ambientes](docs/DEPLOYMENT.md) e [Relatório de preparação](docs/DEPLOYMENT_REPORT.md).
+
 ## Documentação
 
 Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na raiz por convenção das ferramentas.
@@ -63,4 +74,4 @@ Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na
 - [Networks, cursos e modelo Excel](markdown/NETWORKS_IMPLEMENTACAO.md)
 - [Conexões: arquitetura, segurança e testes](markdown/CONEXOES_IMPLEMENTACAO.md)
 
-O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), sem deploy da aplicação. O Supabase está conectado, com sete migrations aplicadas, três buckets privados e acesso institucional validado. A Fase 4 preserva os registros existentes e restringe conexões a estudantes ativos. Consulte os documentos de implementação para validações e pendências de produção.
+O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), ainda sem deploy da aplicação. O Supabase existente é DEV; SABENCA-PROD recebeu as mesmas sete migrations e três buckets privados, sem cópia de usuários ou arquivos. A Fase 4 preserva os registros existentes e restringe conexões a estudantes ativos. Consulte os documentos de implementação para validações e pendências de produção.

@@ -8,6 +8,7 @@ coverage/
 playwright-report/
 test-results/
 .supabase/
+.vercel/
 supabase/.temp/
 supabase/.branches/
 *.log
