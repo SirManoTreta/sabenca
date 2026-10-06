@@ -7,9 +7,11 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   drop: vi.fn(),
   refresh: vi.fn(),
+  redirect: vi.fn(),
 }));
 vi.mock("@/services/session", () => ({ requireUser: mocks.user }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.refresh }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/services/marketplace", () => ({
   MarketplaceError: class extends Error {},
   saveListingData: mocks.save,
@@ -95,4 +97,17 @@ it("does not expose database errors or internal details", async () => {
   expect(await saveListing({}, listing())).toEqual({
     error: "Não foi possível salvar o anúncio. Tente novamente.",
   });
+});
+it("redirects on the server after confirmed deletion, outside the error catch", async () => {
+  mocks.redirect.mockImplementation(() => {
+    throw new Error("NEXT_REDIRECT");
+  });
+  const form = new FormData();
+  form.set("id", id);
+  form.set("confirm", "on");
+  await expect(deleteListing({}, form)).rejects.toThrow("NEXT_REDIRECT");
+  expect(mocks.drop).toHaveBeenCalledOnce();
+  expect(mocks.redirect).toHaveBeenCalledExactlyOnceWith(
+    "/marketplace/meus-anuncios",
+  );
 });

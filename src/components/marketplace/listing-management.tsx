@@ -47,19 +47,8 @@ export function ListingStatusControls({ listing }: { listing: Listing }) {
   );
 }
 export function ListingDelete({ id }: { id: string }) {
-  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
-  const [state, action, pending] = useActionState<MarketplaceState, FormData>(
-    async (previous, form) => {
-      const result = await deleteListing(previous, form);
-      if (result.success) {
-        router.push("/marketplace/meus-anuncios");
-        router.refresh();
-      }
-      return result;
-    },
-    {},
-  );
+  const [state, action, pending] = useActionState(deleteListing, {});
   return (
     <form action={action} className="rounded-2xl border border-border p-5">
       <input type="hidden" name="id" value={id} />
