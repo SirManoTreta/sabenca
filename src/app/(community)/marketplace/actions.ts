@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/services/session";
 import {
@@ -184,12 +185,12 @@ export async function deleteListing(
           );
       }
     });
-    refresh();
-    return { success: "Anúncio excluído." };
   } catch (error) {
     return failure(
       error,
       "Não foi possível excluir o anúncio. Tente novamente.",
     );
   }
+  refresh();
+  redirect("/marketplace/meus-anuncios");
 }
