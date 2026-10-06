@@ -13,7 +13,7 @@ Plataforma universitária em Next.js, React, TypeScript e Supabase. Implementa *
 - Catálogo de cursos em `/admin/cursos`, modelo oficial Excel, importação com validação institucional e relatório de erros.
 - Networks com busca por nome, username e habilidade; filtros combinados, paginação e cards com avatar privado.
 - Conexões mútuas: solicitações, aceite, recusa, cancelamento e remoção, integradas ao Networks e ao perfil.
-- Marketplace continua para a próxima fase.
+- Marketplace com pesquisa, filtros, paginação, produtos e serviços, imagens privadas, gestão dos anúncios e integração com Perfil/Conexões.
 
 Não existe cadastro público. A rota antiga redireciona para Primeiro acesso.
 
@@ -73,5 +73,6 @@ Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na
 - [Perfil: implementação e testes](markdown/PERFIL_IMPLEMENTACAO.md)
 - [Networks, cursos e modelo Excel](markdown/NETWORKS_IMPLEMENTACAO.md)
 - [Conexões: arquitetura, segurança e testes](markdown/CONEXOES_IMPLEMENTACAO.md)
+- [Marketplace: arquitetura, segurança e testes](markdown/MARKETPLACE_IMPLEMENTACAO.md)
 
-O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), ainda sem deploy da aplicação. O Supabase existente é DEV; SABENCA-PROD recebeu as mesmas sete migrations e três buckets privados, sem cópia de usuários ou arquivos. A Fase 4 preserva os registros existentes e restringe conexões a estudantes ativos. Consulte os documentos de implementação para validações e pendências de produção.
+O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), com Staging/Preview na Vercel. Marketplace reutiliza o Supabase DEV e recebeu sua migration somente nesse ambiente. Production e Supabase PROD permanecem separados; a migration do Marketplace não foi aplicada no PROD. Consulte os documentos de implementação para arquitetura, validações e limites.
