@@ -47,15 +47,20 @@ export async function ownProfileContext() {
 
 export async function getProfile(
   username?: string,
+  profileId?: string,
 ): Promise<SocialProfile | null> {
   const { client, user } = await requireUser();
   if (username !== undefined && !usernameSchema.safeParse(username).success)
     return null;
+  if (profileId !== undefined && !idSchema.safeParse(profileId).success)
+    return null;
   const query = client.from("profiles").select(PROFILE_COLUMNS);
   const { data, error } = await (
-    username === undefined
-      ? query.eq("user_id", user.id)
-      : query.eq("username", username.toLowerCase())
+    profileId !== undefined
+      ? query.eq("id", profileId)
+      : username === undefined
+        ? query.eq("user_id", user.id)
+        : query.eq("username", username.toLowerCase())
   ).maybeSingle();
   if (error)
     throw new Error("Não foi possível carregar o perfil. Tente novamente.");
