@@ -8,8 +8,13 @@ coverage/
 playwright-report/
 test-results/
 .supabase/
+.vercel/
 supabase/.temp/
 supabase/.branches/
 *.log
 .DS_Store
 /SABENÇA.zip
+/.local/
+/backups/
+/dumps/
+/.migration.env

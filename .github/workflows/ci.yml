@@ -1,7 +1,7 @@
 name: Verificações
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 jobs:
   verify:
@@ -19,3 +19,5 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+        env:
+          SABENCA_E2E_PRODUCTION: "1"

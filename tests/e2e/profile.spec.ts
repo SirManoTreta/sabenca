@@ -123,6 +123,15 @@ test("student edits profile, labels, private images and project portfolio", asyn
     .getByRole("button", { name: "Entrar no SABENÇA", exact: true })
     .click();
   await expect(page).toHaveURL(/\/marketplace$/);
+  if (new URL(page.url()).protocol === "https:") {
+    const sessionCookies = (await page.context().cookies()).filter((cookie) =>
+      cookie.name.startsWith("sb-"),
+    );
+    expect(sessionCookies.length).toBeGreaterThan(0);
+    expect(
+      sessionCookies.every((cookie) => cookie.secure && cookie.sameSite === "Lax"),
+    ).toBe(true);
+  }
   await page.getByRole("link", { name: "Meu perfil", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Estudante de teste Fase 2" }),
@@ -198,8 +207,16 @@ test("student edits profile, labels, private images and project portfolio", asyn
     .getByRole("link", { name: "Ver meu perfil na comunidade" })
     .click();
   await expect(page).toHaveURL(new RegExp(`/users/${student.username}$`));
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Meu primeiro projeto" }),
+  ).toBeVisible();
+  await expect(page.getByAltText("Imagem de Meu primeiro projeto")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Editar perfil", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Conectar", exact: true }),
   ).toHaveCount(0);
   const html = await page.content();
   for (const secret of [

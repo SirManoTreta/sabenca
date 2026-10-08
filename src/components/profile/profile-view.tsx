@@ -14,6 +14,7 @@ import { ProjectCard } from "./project-card";
 import type { SocialProfile, ProfileLabel } from "@/types/profile";
 import type { ConnectionState } from "@/types/connections";
 import { ConnectionActions } from "@/components/connections/connection-actions";
+import { ProfileListings } from "@/components/marketplace/profile-listings";
 
 function Labels({
   title,
@@ -199,6 +200,7 @@ export function ProfileView({
           </div>
         )}
       </section>
+      <ProfileListings profileId={profile.id} own={own} />
     </div>
   );
 }

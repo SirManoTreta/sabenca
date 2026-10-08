@@ -7,6 +7,7 @@ export async function proxy(request: NextRequest) {
   if (!supabaseConfigured()) return response;
   const { url, key } = supabaseConfig();
   const client = createServerClient(url, key, {
+    cookieOptions: { secure: process.env.NODE_ENV === "production" },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(values, headers) {

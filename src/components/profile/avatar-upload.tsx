@@ -1,7 +1,11 @@
 "use client";
 import { useActionState } from "react";
 import { uploadAvatar } from "@/app/(community)/profile/actions";
-import { IMAGE_ACCEPT } from "@/lib/validations/image";
+import {
+  IMAGE_ACCEPT,
+  IMAGE_SIZE_ERROR,
+  MAX_IMAGE_BYTES,
+} from "@/lib/validations/image";
 import { Button } from "@/components/ui/button";
 import { FormFeedback } from "./form-feedback";
 import { ProfileImage } from "./profile-image";
@@ -27,13 +31,22 @@ export function AvatarUpload({
           name="avatar"
           type="file"
           accept={IMAGE_ACCEPT}
+          onChange={(event) => {
+            const input = event.currentTarget;
+            input.setCustomValidity(
+              (input.files?.[0]?.size ?? 0) > MAX_IMAGE_BYTES
+                ? IMAGE_SIZE_ERROR
+                : "",
+            );
+            input.reportValidity();
+          }}
           required
           disabled={pending}
           className="block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-primary"
           aria-describedby="avatar-help"
         />
         <p id="avatar-help" className="text-xs text-muted-foreground">
-          JPEG, PNG ou WEBP. Até 5 MiB.
+          JPEG, PNG ou WEBP. Até 4 MiB.
         </p>
         <FormFeedback state={state} />
         <Button disabled={pending} variant="outline" size="sm">

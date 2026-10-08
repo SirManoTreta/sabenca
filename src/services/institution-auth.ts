@@ -92,7 +92,7 @@ export async function beginActivation(ra: string, birthDate: string) {
   const [account] =
     await sql`select email_confirmed_at from auth.users where id=${userId} and lower(email)=${student.email} and coalesce(is_anonymous,false)=false`;
   if (!account) throw new Error("Could not prepare activation");
-  const emailRedirectTo = `${appOrigin()}/auth/callback?next=/auth/definir-senha`;
+  const emailRedirectTo = `${await appOrigin()}/auth/callback?next=/auth/definir-senha`;
   // OTP attempts signup for unconfirmed accounts, which closed registration rejects.
   // Resend confirms an already provisioned account and preserves the PKCE flow.
   const { error } = account.email_confirmed_at
