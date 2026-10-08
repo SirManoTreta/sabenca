@@ -124,7 +124,7 @@ Cookies de produção são seguros; proxy renova sessão e mantém respostas pri
 ## Migrations, RLS e Storage
 
 Versione toda alteração futura em `supabase/migrations`. Não modifique migrations já aplicadas.
-As sete migrations atuais foram aplicadas no PROD vazio. Como o conector gera novas versões,
+As sete migrations iniciais foram aplicadas no PROD vazio. Como o conector gera novas versões,
 somente os identificadores do histórico PROD foram alinhados aos nomes/versões originais,
 com verificação posterior. O histórico DEV não foi alterado.
 
@@ -141,7 +141,9 @@ npx supabase db push --project-ref qybcbxrxghykkchnvmhy --dry-run --skip-vault
 ```
 
 Nunca usar `db reset` no remoto ou `--include-seed` em PROD. Seeds automáticos desabilitados;
-fixtures dos testes geram/removem seus próprios registros fictícios. Não copiar alunos ou Auth entre ambientes.
+fixtures dos testes geram/removem seus próprios registros fictícios. Deploys rotineiros não copiam alunos ou Auth entre ambientes.
+A migração extraordinária DEV → PROD foi autorizada pelo titular em outubro de 2026, com backup validado,
+oito migrations e preservação de UUIDs/hashes. Consulte [o relatório](PROMOCAO_DEV_PROD_RELATORIO.md).
 O build e CI não executam migrations, seeds ou bootstrap administrativo.
 
 RLS permanece ativa em todas as tabelas `public`/`private`. Membership exige vínculo institucional ativo;

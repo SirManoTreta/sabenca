@@ -14,3 +14,7 @@ supabase/.branches/
 *.log
 .DS_Store
 /SABENÇA.zip
+/.local/
+/backups/
+/dumps/
+/.migration.env
