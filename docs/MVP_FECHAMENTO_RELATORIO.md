@@ -77,7 +77,7 @@ A plataforma informou PostgreSQL 17.6 nos projetos. O [changelog de manutenção
 | `npm ci` | Passou; lockfile preservado. |
 | `npm run lint` | Passou. |
 | `npm run typecheck` | Passou. |
-| Vitest | 269/269 passaram, em 22 arquivos: 180 unitários e 89 de integração; zero skips. |
+| Vitest | 269/269 passaram, em 22 arquivos: 163 unitários e 106 de integração SQL/PGlite; zero skips. |
 | `npm run build` | Passou novamente após os testes completos. |
 | Playwright completo | 26/26 cenários desktop/mobile passaram, sem skips, em 20,6 min. |
 | Auth administrativo adicional | 2/2 cenários desktop/mobile passaram: recuperação nativa sem envio de e-mail, sessão, troca de senha, logout e novo login. Redirect de `/auth/convite` no develop aceito pelo Supabase. |
@@ -85,6 +85,8 @@ A plataforma informou PostgreSQL 17.6 nos projetos. O [changelog de manutenção
 | Preview hospedado | 2/2 cenários passaram: Perfil/portfólio com uploads privados e Auth administrativo. |
 
 A suíte mantida tem 28 cenários Playwright distintos. A rodada completa começou antes da inclusão do cenário adicional de Auth, executado separadamente nos dois projetos. Retestes não são contados como funcionalidades ou cobertura adicionais. Larguras verificadas: 360, 390, 768, 1024 e 1440 px; formulários, navegação, Perfil, Marketplace, Networks, certificados e áreas administrativas novas. Revisão de labels, headings, controles nativos, confirmações e feedback; sem alegação de certificação WCAG.
+
+Classificação Vitest feita pela execução SQL real, não pelo sufixo do arquivo: `database.test.ts` contém 17 testes de integração com PGlite e foi incluído nessa categoria. São oito arquivos de integração SQL e 14 de testes unitários.
 
 Os testes hospedados criam fixtures sintéticas somente no DEV e removem seus registros/arquivos. Não enviam e-mails para endereços fictícios. Primeiro acesso e entrega SMTP mantêm a implementação anterior, testes de integração com entrega simulada e histórico de validação humana; não se afirma uma nova entrega real de e-mail nesta rodada.
 
