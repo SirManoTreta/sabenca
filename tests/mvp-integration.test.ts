@@ -334,6 +334,26 @@ describe("private certificates", () => {
 });
 
 describe("reports and blocks", () => {
+  it("does not reveal third-party block state through BEFORE trigger errors", async () => {
+    const request = `insert into public.connections(requester_id,receiver_id) values ('${pid(1)}','${pid(2)}')`;
+    await expect(asUser(uid(3), request)).rejects.toMatchObject({
+      code: "42501",
+      message: "Connection authorization required",
+    });
+    await blockProfile(uid(1), pid(2), true);
+    await expect(asUser(uid(3), request)).rejects.toMatchObject({
+      code: "42501",
+      message: "Connection authorization required",
+    });
+  });
+  it("does not grant API access to internal reviewer identifiers", async () => {
+    await expect(
+      asUser(uid(1), "select verified_by from public.profile_certificates"),
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      asUser(uid(1), "select reviewed_by from public.reports"),
+    ).rejects.toMatchObject({ code: "42501" });
+  });
   it("enforces the report rate limit even through direct SQL as an API caller", async () => {
     for (let i = 0; i < 11; i++) {
       const id = randomUUID();

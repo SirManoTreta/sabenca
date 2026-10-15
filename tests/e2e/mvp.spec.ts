@@ -24,6 +24,10 @@ type Fixture = {
   staff: Member;
   token: string;
   sql: ReturnType<typeof postgres>;
+  adminRecoverySession: () => Promise<{
+    access_token: string;
+    refresh_token: string;
+  }>;
 };
 const test = base.extend<{ fixture: Fixture }>({
   fixture: async ({}, provide) => {
@@ -93,7 +97,44 @@ const test = base.extend<{ fixture: Fixture }>({
       const a = await makeMember("Alfa"),
         b = await makeMember("Beta"),
         staff = await makeMember("Equipe", true);
-      await provide({ a, b, staff, token, sql });
+      await provide({
+        a,
+        b,
+        staff,
+        token,
+        sql,
+        adminRecoverySession: async () => {
+          // Exercise native Auth without sending mail to synthetic addresses.
+          const redirect =
+            "https://sabenca-git-develop-sirmanotretas-projects.vercel.app/auth/convite";
+          const link = await admin.auth.admin.generateLink({
+            type: "recovery",
+            email: staff.email,
+            options: { redirectTo: redirect },
+          });
+          if (link.error || !link.data.properties?.hashed_token)
+            throw new Error("Unable to prepare isolated recovery link");
+          if (link.data.properties.redirect_to !== redirect)
+            throw new Error(
+              "Supabase DEV must allow /auth/convite for develop Preview",
+            );
+          const client = createClient(
+            url,
+            process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+            { auth: { persistSession: false, autoRefreshToken: false } },
+          );
+          const verified = await client.auth.verifyOtp({
+            type: "recovery",
+            token_hash: link.data.properties.hashed_token,
+          });
+          if (verified.error || !verified.data.session)
+            throw new Error("Isolated recovery verification failed");
+          return {
+            access_token: verified.data.session.access_token,
+            refresh_token: verified.data.session.refresh_token,
+          };
+        },
+      });
     } finally {
       for (const m of members) {
         if (m.userId) {
@@ -175,6 +216,36 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1cAAAAASUVORK5CYII=",
   "base64",
 );
+test("native admin recovery establishes invitation session and changes password", async ({
+  page,
+  fixture: f,
+}) => {
+  const session = await f.adminRecoverySession();
+  await page.addInitScript(({ access_token, refresh_token }) => {
+    if (location.pathname === "/auth/convite")
+      history.replaceState(
+        null,
+        "",
+        `/auth/convite#${new URLSearchParams({ access_token, refresh_token, type: "recovery" })}`,
+      );
+  }, session);
+  await page.goto("/auth/convite");
+  await expect(page).toHaveURL(/\/auth\/update-password$/);
+  expect(new URL(page.url()).hash).toBe("");
+  const password = `${randomUUID()}Aa1!`;
+  await page.getByLabel("Nova senha", { exact: true }).fill(password);
+  await page
+    .getByLabel("Confirme a nova senha", { exact: true })
+    .fill(password);
+  await page
+    .getByRole("button", { name: "Salvar nova senha", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/auth\/admin\?message=password-updated$/);
+  await login(page, { ...f.staff, password }, true);
+  await expect(
+    page.getByRole("heading", { name: "Alunos cadastrados", exact: true }),
+  ).toBeVisible();
+});
 
 test("certificate lifecycle, private files, admin management and review", async ({
   page,
@@ -291,14 +362,12 @@ test("certificate lifecycle, private files, admin management and review", async 
     await own
       .getByRole("button", { name: "Salvar certificado", exact: true })
       .click();
-    const edited = page
-      .getByRole("article")
-      .filter({
-        has: page.getByRole("heading", {
-          name: `${title} editado`,
-          exact: true,
-        }),
-      });
+    const edited = page.getByRole("article").filter({
+      has: page.getByRole("heading", {
+        name: `${title} editado`,
+        exact: true,
+      }),
+    });
     await expect(
       edited.getByText("Status: Pendente de análise", { exact: true }),
     ).toBeVisible();
