@@ -1,5 +1,7 @@
 // Fixtures mutate only the explicitly authorized development project.
-export function assertDevEnvironment(env = process.env) {
+export function assertDevEnvironment(
+  env: Record<string, string | undefined> = process.env,
+) {
   const ref = "fidndjlresfxvmerkbhs";
   const db = new URL(env.DATABASE_URL ?? "https://unconfigured.invalid");
   const direct =

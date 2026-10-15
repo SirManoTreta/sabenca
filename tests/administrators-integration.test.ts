@@ -138,4 +138,51 @@ describe("administrator management", () => {
       "revogado",
     );
   });
+  it("resends an unconfirmed admin invitation without duplicating authorization", async () => {
+    state.invite
+      .mockReset()
+      .mockResolvedValue({ data: { user: { id: created } }, error: null });
+    await addAdministrator(admin, "new@example.test", "https://example.test");
+    await addAdministrator(
+      admin,
+      "new@example.test",
+      "https://example.test",
+      true,
+    );
+    expect(state.invite).toHaveBeenCalledTimes(2);
+    expect(
+      await state.sql`select user_id from private.admin_users where user_id=${created}`,
+    ).toHaveLength(1);
+  });
+  it("recovers when Auth created the account but its response was interrupted", async () => {
+    const partial = "55555555-5555-4555-8555-555555555555";
+    state.invite.mockReset().mockImplementationOnce(async () => {
+      await state.sql`insert into auth.users(id,email) values (${partial},'partial@example.test')`;
+      throw new Error("Interrupted Auth response");
+    });
+    await expect(
+      addAdministrator(admin, "partial@example.test", "https://example.test"),
+    ).rejects.toThrow("Interrupted");
+    expect(
+      await state.sql`select email from private.admin_invitations where email='partial@example.test' and delivery_failed`,
+    ).toHaveLength(1);
+    state.invite.mockResolvedValueOnce({
+      data: { user: { id: partial } },
+      error: null,
+    });
+    await addAdministrator(
+      admin,
+      "partial@example.test",
+      "https://example.test",
+    );
+    expect(
+      await state.sql`select id from auth.users where email='partial@example.test'`,
+    ).toHaveLength(1);
+    expect(
+      await state.sql`select user_id from private.admin_users where user_id=${partial}`,
+    ).toHaveLength(1);
+    expect(
+      await state.sql`select email from private.admin_invitations where email='partial@example.test'`,
+    ).toHaveLength(0);
+  });
 });
