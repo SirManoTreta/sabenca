@@ -49,19 +49,15 @@ export async function getProfile(
   username?: string,
   profileId?: string,
 ): Promise<SocialProfile | null> {
-  const { client, user } = await requireUser();
+  const { client } = await requireUser();
   if (username !== undefined && !usernameSchema.safeParse(username).success)
     return null;
   if (profileId !== undefined && !idSchema.safeParse(profileId).success)
     return null;
-  const query = client.from("profiles").select(PROFILE_COLUMNS);
-  const { data, error } = await (
-    profileId !== undefined
-      ? query.eq("id", profileId)
-      : username === undefined
-        ? query.eq("user_id", user.id)
-        : query.eq("username", username.toLowerCase())
-  ).maybeSingle();
+  const { data, error } = await client.rpc("social_profile", {
+    target_username: username?.toLowerCase() ?? null,
+    target_profile: profileId ?? null,
+  });
   if (error)
     throw new Error("Não foi possível carregar o perfil. Tente novamente.");
   if (!data) return null;

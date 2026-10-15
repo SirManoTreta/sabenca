@@ -1,3 +1,4 @@
+import { assertDevEnvironment } from "./dev-environment";
 import { test as base, expect as baseExpect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
@@ -15,6 +16,7 @@ type Student = {
 };
 const test = base.extend<{ student: Student }>({
   student: async ({}, provide) => {
+    assertDevEnvironment();
     const databaseUrl = process.env.DATABASE_URL;
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SECRET_KEY;

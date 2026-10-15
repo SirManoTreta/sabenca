@@ -1,3 +1,4 @@
+import { assertDevEnvironment } from "./dev-environment";
 import {
   test as base,
   expect as baseExpect,
@@ -25,6 +26,7 @@ type Fixture = {
 };
 const test = base.extend<{ members: Fixture }>({
   members: async ({}, provide) => {
+    assertDevEnvironment();
     const sql = postgres(process.env.DATABASE_URL!, {
       ssl: {
         rejectUnauthorized: true,

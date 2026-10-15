@@ -1,3 +1,4 @@
+import { assertDevEnvironment } from "./dev-environment";
 import {
   test as base,
   expect as baseExpect,
@@ -24,6 +25,7 @@ type Fixture = {
 };
 const test = base.extend<{ fixture: Fixture }>({
   fixture: async ({}, provide) => {
+    assertDevEnvironment();
     const ref = "fidndjlresfxvmerkbhs";
     if (
       new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname !==

@@ -52,7 +52,7 @@ const listingColumns = (
   sql: TransactionSql,
 ) => sql`l.id,l.title,l.description,l.price::text,l.condition,l.status,l.created_at,
  jsonb_build_object('id',c.id,'name',c.name,'is_service',c.is_service) as category,
- jsonb_build_object('id',p.id,'username',p.username,'name',p.name,'course',course.name,'semester',p.semester,'institution',p.institution,'avatar_url',p.avatar_url) as seller,
+ jsonb_build_object('id',p.id,'username',p.username,'name',p.name,'course',course.name,'semester',private.visible_semester(p.id),'institution',p.institution,'avatar_url',p.avatar_url) as seller,
  coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'position',i.position,'image_url',i.image_url) order by i.position,i.id) from public.listing_images i where i.listing_id=l.id),'[]'::jsonb) as images`;
 export async function searchListings(
   actor: string,
