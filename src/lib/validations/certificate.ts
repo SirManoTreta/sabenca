@@ -13,11 +13,24 @@ export const certificateSchema = z
     expiration_date: z.union([date, z.literal("")]).default(""),
     credential_id: optionalText(160),
     verification_url: z
-      .string().trim().max(2048)
-      .refine((value)=>{
-        if(!value)return true;
-        try{const u=new URL(value);return u.protocol==="https:"&&!!u.hostname&&!u.username&&!u.password&&!/\s/.test(value);}catch{return false;}
-      },"Informe uma URL HTTPS válida, sem credenciais.")
+      .string()
+      .trim()
+      .max(2048)
+      .refine((value) => {
+        if (!value) return true;
+        try {
+          const u = new URL(value);
+          return (
+            u.protocol === "https:" &&
+            !!u.hostname &&
+            !u.username &&
+            !u.password &&
+            !/\s/.test(value)
+          );
+        } catch {
+          return false;
+        }
+      }, "Informe uma URL HTTPS válida, sem credenciais.")
       .default(""),
   })
   .refine((v) => !v.expiration_date || v.expiration_date >= v.issue_date, {

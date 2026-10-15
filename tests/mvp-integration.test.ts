@@ -124,28 +124,49 @@ afterAll(async () => {
 });
 
 describe("private certificates", () => {
-  it("keeps interrupted uploads retryable without deleting active files or another owner's paths",async()=>{
-    const id=randomUUID(),path=`${uid(1)}/${id}/${randomUUID()}.pdf`;
-    const remove=vi.fn().mockResolvedValue({error:null});
-    const client={storage:{from:()=>({remove})}} as unknown as Parameters<typeof retryCertificateCleanup>[1];
-    await expect(queueCertificateCleanup(uid(2),path)).rejects.toThrow("inválido");
-    await queueCertificateCleanup(uid(1),path,true);
-    expect(await retryCertificateCleanup(uid(1),client)).toBe(1);expect(remove).not.toHaveBeenCalled();
-    await saveCertificate(uid(1),id,cert,path);
-    expect(await state.sql`select path from private.certificate_file_cleanup`).toHaveLength(0);
-    await saveCertificate(uid(1),id,cert,null);
-    remove.mockResolvedValueOnce({error:{message:"Storage offline"}});
-    expect(await retryCertificateCleanup(uid(1),client)).toBe(1);
-    expect(await retryCertificateCleanup(uid(1),client)).toBe(0);
+  it("keeps interrupted uploads retryable without deleting active files or another owner's paths", async () => {
+    const id = randomUUID(),
+      path = `${uid(1)}/${id}/${randomUUID()}.pdf`;
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    const client = {
+      storage: { from: () => ({ remove }) },
+    } as unknown as Parameters<typeof retryCertificateCleanup>[1];
+    await expect(queueCertificateCleanup(uid(2), path)).rejects.toThrow(
+      "inválido",
+    );
+    await queueCertificateCleanup(uid(1), path, true);
+    expect(await retryCertificateCleanup(uid(1), client)).toBe(1);
+    expect(remove).not.toHaveBeenCalled();
+    await saveCertificate(uid(1), id, cert, path);
+    expect(
+      await state.sql`select path from private.certificate_file_cleanup`,
+    ).toHaveLength(0);
+    await saveCertificate(uid(1), id, cert, null);
+    remove.mockResolvedValueOnce({ error: { message: "Storage offline" } });
+    expect(await retryCertificateCleanup(uid(1), client)).toBe(1);
+    expect(await retryCertificateCleanup(uid(1), client)).toBe(0);
     expect(remove).toHaveBeenCalledWith([path]);
   });
-  it("refuses a review submitted for an outdated document version",async()=>{
-    const id=randomUUID();await saveCertificate(uid(1),id,cert,null);
+  it("refuses a review submitted for an outdated document version", async () => {
+    const id = randomUUID();
+    await saveCertificate(uid(1), id, cert, null);
     await state.sql`update public.profile_certificates set updated_at=now()-interval '1 day' where id=${id}`;
-    const [old]=await state.sql`select updated_at::text as version from public.profile_certificates where id=${id}`;
-    await saveCertificate(uid(1),id,{...cert,title:"Documento atualizado"},undefined);
-    await expect(reviewCertificate(uid(4),id,"verified","",old.version)).rejects.toThrow("indisponível");
-    expect((await state.sql`select status from public.profile_certificates where id=${id}`)[0].status).toBe("pending");
+    const [old] =
+      await state.sql`select updated_at::text as version from public.profile_certificates where id=${id}`;
+    await saveCertificate(
+      uid(1),
+      id,
+      { ...cert, title: "Documento atualizado" },
+      undefined,
+    );
+    await expect(
+      reviewCertificate(uid(4), id, "verified", "", old.version),
+    ).rejects.toThrow("indisponível");
+    expect(
+      (
+        await state.sql`select status from public.profile_certificates where id=${id}`
+      )[0].status,
+    ).toBe("pending");
   });
   it("creates pending, hides originals from peers, permits admin review and exposes only verified metadata", async () => {
     const id = randomUUID(),
@@ -313,6 +334,20 @@ describe("private certificates", () => {
 });
 
 describe("reports and blocks", () => {
+  it("enforces the report rate limit even through direct SQL as an API caller", async () => {
+    for (let i = 0; i < 11; i++) {
+      const id = randomUUID();
+      await state.sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition) values (${id},${pid(2)},'Oferta de teste','Descrição',10,${category},'used')`;
+      const request = asUser(
+        uid(1),
+        `insert into public.reports(reporter_id,target_type,target_id,reason) values ('${uid(1)}','listing','${id}','fraud')`,
+      );
+      if (i === 10)
+        await expect(request).rejects.toMatchObject({ code: "23514" });
+      else await request;
+    }
+    expect(await state.sql`select id from public.reports`).toHaveLength(10);
+  });
   it("validates target and ownership, prevents duplicate reports, and restricts review", async () => {
     const input = {
       target_type: "profile",

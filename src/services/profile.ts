@@ -9,9 +9,7 @@ import type {
 } from "@/types/profile";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Explicit selections keep Auth and private institutional fields out of the DTO.
-export const PROFILE_COLUMNS =
-  "id,username,name,bio,courses(name),semester,institution,avatar_url";
+// Explicit selections and the social_profile RPC keep private fields out of DTOs.
 export const PROJECT_COLUMNS =
   "id,title,description,image_url,project_url,repository_url";
 export async function signedImage(
