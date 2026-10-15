@@ -50,6 +50,8 @@ test("legacy signup redirects; student and admin routes are protected", async ({
     "/profile/projects/11111111-1111-4111-8111-111111111111/edit",
     "/users/aluno",
     "/connections",
+    "/profile/certificados",
+    "/profile/privacidade",
   ]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/auth\/login/);
@@ -60,12 +62,40 @@ test("legacy signup redirects; student and admin routes are protected", async ({
     "/admin/alunos/importacoes",
     "/admin/cursos",
     "/admin/alunos/modelo",
+    "/admin/administradores",
+    "/admin/certificados",
+    "/admin/denuncias",
   ]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/auth\/admin/);
   }
   await page.goto("/auth/definir-senha");
   await expect(page).not.toHaveURL(/\/auth\/definir-senha$/);
+});
+test("community documents remain accessible and responsive", async ({
+  page,
+}) => {
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [route, title] of [
+      ["/privacidade", "Política de Privacidade"],
+      ["/termos", "Termos de Uso"],
+      ["/comunidade", "Regras da Comunidade"],
+    ]) {
+      await page.goto(route);
+      await expect(
+        page.getByRole("heading", { name: title, exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await expect(
+        page.getByRole("navigation", { name: "Documentos da comunidade" }),
+      ).toBeVisible();
+    }
+  }
 });
 test("RA login, recovery and safe callback", async ({ page }) => {
   await page.goto("/auth/login");

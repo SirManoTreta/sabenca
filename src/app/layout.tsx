@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Link from "next/link";
 export const metadata: Metadata = {
   title: {
     default: "Sabença — Comunidade FATECE",
@@ -22,6 +23,7 @@ export default function RootLayout({
           Pular para o conteúdo
         </a>
         {children}
+        <footer className="border-t border-border px-6 py-6 text-sm text-muted-foreground"><nav aria-label="Documentos da comunidade" className="mx-auto flex max-w-7xl flex-wrap gap-x-6 gap-y-3"><Link href="/privacidade">Política de Privacidade</Link><Link href="/termos">Termos de Uso</Link><Link href="/comunidade">Regras da Comunidade</Link></nav></footer>
       </body>
     </html>
   );
