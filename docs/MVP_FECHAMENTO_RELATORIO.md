@@ -98,7 +98,7 @@ Preview estável: [develop](https://sabenca-git-develop-sirmanotretas-projects.v
 
 O Preview exige autenticação Vercel. O conector oficial forneceu acesso temporário para os testes; a proteção permaneceu ativada. Doze chunks do cliente foram conferidos: Supabase DEV presente, PROD ausente. O acesso temporário e seus cookies não foram publicados nem versionados.
 
-[CI de funcionalidades](https://github.com/SirManoTreta/sabenca/actions/runs/38760653748): success. A publicação final dos documentos e a PR gerarão novas verificações, a conferir antes da entrega.
+[CI de funcionalidades](https://github.com/SirManoTreta/sabenca/actions/runs/38760653748) e [CI da entrega completa](https://github.com/SirManoTreta/sabenca/actions/runs/38763575958): success. O Preview do SHA `aa590049475045a9e42e8ed89f244bbabfe4bc0b` também está READY: `dpl_4Qws8ghAdZ1V3WG7xH22SLxkTak1`, [URL gerada](https://sabenca-j8y1chvy3-sirmanotretas-projects.vercel.app). Não há diferença em `src/` entre o deployment funcional testado acima e esse SHA; a evolução foi de migration, testes e documentação.
 
 ## Documentação
 
@@ -112,9 +112,9 @@ O Preview exige autenticação Vercel. O conector oficial forneceu acesso tempor
 
 ## Git e pré-promoção
 
-Branch de trabalho: `develop`. Commits funcionais: `49621cd` (admin), `d4f784f` (certificados), `baa083f` (moderação/privacidade), `21c1b28` (documentos comunitários), `5977044` e `da36694` (testes), `76e54ed` (hardening). A documentação será commitada como uma etapa lógica própria.
+Branch de trabalho: `develop`. Commits funcionais: `49621cd` (admin), `d4f784f` (certificados), `baa083f` (moderação/privacidade), `21c1b28` (documentos comunitários), `5977044` e `da36694` (testes), `76e54ed` (hardening) e `aa59004` (documentação de entrega). A atualização deste relatório registra a abertura da PR e os gates concluídos.
 
-Comparação: `main...develop`. A lista integral dos arquivos alterados será incluída em `MVP_PRE_PROMOCAO.md`. A PR deve se chamar **Finalizar MVP do SABENÇA**, com base `main` e head `develop`, sem auto-merge.
+Comparação: `main...develop`, 70 caminhos alterados. Lista integral em `MVP_PRE_PROMOCAO.md`. [PR #4 — Finalizar MVP do SABENÇA](https://github.com/SirManoTreta/sabenca/pull/4), aberta com base `main` e head `develop`, pronta para revisão, sem merge ou auto-merge. A PR permanece aguardando autorização explícita de promoção.
 
 ## Production e rollback
 
@@ -126,6 +126,6 @@ Após autorização explícita: validar conexão PROD, criar e validar backup, a
 
 ## Pendências e limites
 
-O fechamento funcional foi concluído no DEV. A PR e a verificação do SHA final serão registradas ao publicar a documentação. A promoção depende de autorização do responsável. Os avisos de dependência de desenvolvimento, proteção de senhas e manutenção do engine são riscos operacionais registrados, sem falso resultado de “audit total zero”. Preenchimento do contato institucional é necessário antes de adoção institucional definitiva; o placeholder é permitido para o TCC.
+O fechamento funcional foi concluído no DEV e a PR #4 está aberta. A promoção depende de autorização do responsável. Os avisos de dependência de desenvolvimento, proteção de senhas e manutenção do engine são riscos operacionais registrados, sem falso resultado de “audit total zero”. Preenchimento do contato institucional é necessário antes de adoção institucional definitiva; o placeholder é permitido para o TCC.
 
 Não foram incluídas funcionalidades fora do recorte. Melhorias futuras não impedem demonstrar o percurso Marketplace ↔ Perfil ↔ Networks.

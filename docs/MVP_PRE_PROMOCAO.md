@@ -2,6 +2,8 @@
 
 Base Production: `b4235f7900b36a01d011e23244b487f870d77f43`. Branch proposta: `develop`. PR: **Finalizar MVP do SABENÇA**. Este documento não autoriza merge nem mudanças PROD.
 
+[PR #4 — Finalizar MVP do SABENÇA](https://github.com/SirManoTreta/sabenca/pull/4), aberta para revisão; merge depende de autorização explícita.
+
 ## Alterações de banco
 
 - `20261015144754_mvp_administration.sql`
