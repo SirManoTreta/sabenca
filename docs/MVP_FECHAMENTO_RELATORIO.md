@@ -116,7 +116,7 @@ O Preview exige autenticação Vercel. O conector oficial forneceu acesso tempor
 
 Branch de trabalho: `develop`. Commits funcionais: `49621cd` (admin), `d4f784f` (certificados), `baa083f` (moderação/privacidade), `21c1b28` (documentos comunitários), `5977044` e `da36694` (testes), `76e54ed` (hardening) e `aa59004` (documentação de entrega). A atualização deste relatório registra a abertura da PR e os gates concluídos.
 
-Comparação: `main...develop`, 70 caminhos alterados. Lista integral em `MVP_PRE_PROMOCAO.md`. [PR #4 — Finalizar MVP do SABENÇA](https://github.com/SirManoTreta/sabenca/pull/4), aberta com base `main` e head `develop`, pronta para revisão, sem merge ou auto-merge. A PR permanece aguardando autorização explícita de promoção.
+Comparação: `main...develop`, 69 caminhos alterados. Lista integral em `MVP_PRE_PROMOCAO.md`. [PR #4 — Finalizar MVP do SABENÇA](https://github.com/SirManoTreta/sabenca/pull/4), aberta com base `main` e head `develop`, pronta para revisão, sem merge ou auto-merge. A PR permanece aguardando autorização explícita de promoção.
 
 ## Production e rollback
 

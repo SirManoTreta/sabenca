@@ -32,11 +32,12 @@ Há riscos operacionais preexistentes registrados no relatório: cadeia ESLint/b
 
 ## Arquivos alterados
 
-70 caminhos na comparação de fechamento, incluindo este documento; exclusões também aparecem. A revisão definitiva é `git diff main...develop` na PR.
+69 caminhos na comparação de fechamento, incluindo este documento; exclusões também aparecem. A revisão definitiva é `git diff main...develop` na PR.
+
+O prompt de desenvolvimento foi removido antes da promoção no commit `31a423d618b3ebf2ca40be7e2f08b03c1f6fefd1`; não faz parte da documentação oficial nem desta lista.
 
 - `.env.example`
 - `.gitignore`
-- `# SABENÇA — Fechamento completo do.md`
 - `docs/DEMO_TCC.md`
 - `docs/DEPLOYMENT_PREPARACAO_2026_09_29.md`
 - `docs/DEPLOYMENT.md`
