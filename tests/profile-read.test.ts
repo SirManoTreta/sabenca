@@ -47,6 +47,11 @@ beforeEach(() => {
     ...privateFields,
   };
   const client = {
+    async rpc(name: string, args: { target_username: string|null; target_profile: string|null }) {
+      state.queries.push(name);
+      state.filters.push(["rpc", args]);
+      return {data: state.missing ? null : profile, error: null};
+    },
     from(table: string) {
       const result = () => ({
         data:
@@ -87,7 +92,7 @@ describe("profile reads and privacy", () => {
     const result = await getProfile();
     expect(result?.name).toBe("Nome institucional");
     expect(result?.course).toBe("Computação");
-    expect(state.filters).toContainEqual(["user_id", "auth-id"]);
+    expect(state.filters).toContainEqual(["rpc", {target_username:null,target_profile:null}]);
     for (const field of Object.keys(privateFields)) {
       expect(result).not.toHaveProperty(field);
       expect(result?.projects[0]).not.toHaveProperty(field);
@@ -102,7 +107,7 @@ describe("profile reads and privacy", () => {
   });
   it("allows an active member to view a normalized username", async () => {
     expect(await getProfile("ALICE")).toHaveProperty("username", "alice");
-    expect(state.filters).toContainEqual(["username", "alice"]);
+    expect(state.filters).toContainEqual(["rpc", {target_username:"alice",target_profile:null}]);
   });
   it("requires active membership before reads or signing", async () => {
     for (const route of ["/auth/login", "/auth/acesso-negado"]) {

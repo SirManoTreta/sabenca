@@ -59,11 +59,11 @@ export async function searchNetworks(
       }[]
     >`
       with matches as materialized (
-        select p.id,p.username,p.name,c.name as course,p.semester,p.institution,p.avatar_url
+        select p.id,p.username,p.name,c.name as course,private.visible_semester(p.id) as semester,p.institution,p.avatar_url
         from public.profiles p left join public.courses c on c.id=p.course_id
         where p.institution_id=${INSTITUTION_ID} and p.username is not null and p.user_id <> (select auth.uid())
           ${course ? sql`and p.course_id=${course}` : sql``}
-          ${semester ? sql`and p.semester=${semester}` : sql``}
+          ${semester ? sql`and private.visible_semester(p.id)=${semester}` : sql``}
           ${skill ? sql`and exists(select 1 from public.profile_skills ps where ps.profile_id=p.id and ps.skill_id=${skill})` : sql``}
           ${interest ? sql`and exists(select 1 from public.profile_interests pi where pi.profile_id=p.id and pi.interest_id=${interest})` : sql``}
           ${

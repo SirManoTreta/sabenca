@@ -1,6 +1,6 @@
 # SABENÇA · Comunidade FATECE
 
-Plataforma universitária em Next.js, React, TypeScript e Supabase. Implementa **acesso institucional pré-autorizado**, administração de cursos e alunos, **perfil acadêmico/social** com portfólio e descoberta de estudantes no **Networks**.
+Plataforma universitária fechada em Next.js, React, TypeScript e Supabase. Integra **Marketplace ↔ Perfil ↔ Networks**, apoiada por vínculo acadêmico, portfólio e conexões entre estudantes.
 
 ## O que funciona no código
 
@@ -14,6 +14,10 @@ Plataforma universitária em Next.js, React, TypeScript e Supabase. Implementa *
 - Networks com busca por nome, username e habilidade; filtros combinados, paginação e cards com avatar privado.
 - Conexões mútuas: solicitações, aceite, recusa, cancelamento e remoção, integradas ao Networks e ao perfil.
 - Marketplace com pesquisa, filtros, paginação, produtos e serviços, imagens privadas, gestão dos anúncios e integração com Perfil/Conexões.
+- Gestão de administradores com convite, reenvio, recuperação de provisionamento parcial e revogação protegida contra autorremoção e perda do último admin confirmado.
+- Certificados com metadados, upload privado, revisão administrativa e selo de documento analisado; alterações devolvem o certificado para pendente.
+- Denúncias de perfil/anúncio, revisão administrativa, bloqueio bilateral e controles de privacidade do perfil aplicados também no banco.
+- Política de Privacidade, Termos de Uso e Regras da Comunidade, com placeholders institucionais explícitos.
 
 Não existe cadastro público. A rota antiga redireciona para Primeiro acesso.
 
@@ -58,12 +62,23 @@ Testes de importação e ativação executam PostgreSQL real em PGlite, inclusiv
 | Staging         | `develop`               | Vercel Preview       | Supabase DEV  |
 | Produção        | `main`                  | Vercel Production    | Supabase PROD |
 
-DEV e PROD possuem projetos separados. Projeto Vercel criado e conectado ao GitHub. Variáveis de Production e Preview cadastradas conforme informado pelo responsável; primeiro Preview de `develop` em preparação. `NEXT_PUBLIC_APP_URL` permanece ausente em Preview até revisão da URL real, sem bloquear o build.
-Consulte [Hospedagem e ambientes](docs/DEPLOYMENT.md) e [Relatório de preparação](docs/DEPLOYMENT_REPORT.md).
+DEV e PROD possuem projetos separados. A promoção anterior foi realizada pela PR #3; o fechamento atual do MVP acontece em `develop`, com migrations incrementais somente no DEV e nova PR sem merge automático.
+
+- [DEV/Preview](https://sabenca-git-develop-sirmanotretas-projects.vercel.app) — Supabase `fidndjlresfxvmerkbhs`.
+- [Production](https://project-q1u7y.vercel.app) — Supabase `qybcbxrxghykkchnvmhy`.
+
+O DEV pode ser pausado pelo provedor por inatividade. Não usar PROD como substituto. Consulte [Hospedagem e ambientes](docs/DEPLOYMENT.md) e [Operação atual do MVP](docs/MVP_ARQUITETURA_E_OPERACAO.md).
 
 ## Documentação
 
-Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na raiz por convenção das ferramentas.
+Documentos atuais ficam em `docs/`; registros das etapas anteriores permanecem em `markdown/` e nos relatórios históricos.
+
+- [Auditoria de escopo](docs/MVP_GAP_ANALYSIS.md)
+- [Relatório de fechamento e validações](docs/MVP_FECHAMENTO_RELATORIO.md)
+- [Pré-promoção e rollback](docs/MVP_PRE_PROMOCAO.md)
+- [Arquitetura e operação](docs/MVP_ARQUITETURA_E_OPERACAO.md)
+- [Implementação técnica para o TCC](docs/TCC_IMPLEMENTACAO_TECNICA.md)
+- [Roteiro de demonstração](docs/DEMO_TCC.md)
 
 - [Guia inicial](markdown/SABENCA_Guia_Inicial_Desenvolvimento.md)
 - [Resumo do desenvolvimento do TCC](markdown/RESUMO_DESENVOLVIMENTO_TCC.md)
@@ -75,4 +90,4 @@ Os guias e registros ficam em `markdown/`. README, AGENTS e CLAUDE permanecem na
 - [Conexões: arquitetura, segurança e testes](markdown/CONEXOES_IMPLEMENTACAO.md)
 - [Marketplace: arquitetura, segurança e testes](markdown/MARKETPLACE_IMPLEMENTACAO.md)
 
-O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca), com Staging/Preview na Vercel. Marketplace reutiliza o Supabase DEV e recebeu sua migration somente nesse ambiente. Production e Supabase PROD permanecem separados; a migration do Marketplace não foi aplicada no PROD. Consulte os documentos de implementação para arquitetura, validações e limites.
+O código é versionado em [SirManoTreta/sabenca](https://github.com/SirManoTreta/sabenca). Production já contém Marketplace e as oito migrations da promoção anterior. O fechamento do MVP acrescenta migrations incrementais; nenhuma delas deve ser aplicada ao PROD antes da autorização de promoção. Não repetir o clone DEV → PROD.

@@ -142,6 +142,8 @@ beforeAll(async () => {
   expect(
     (await db.query("select * from public.connections order by id")).rows,
   ).toEqual(before);
+  for (const file of migrations.filter((f) => f > phase))
+    await db.exec("begin;" + readFileSync("supabase/migrations/" + file, "utf8") + "commit;");
   server = new PGLiteSocketServer({ db, port: 0, host: "127.0.0.1" });
   await server.start();
   const connection = server.getServerConn();

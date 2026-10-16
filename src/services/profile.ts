@@ -9,9 +9,7 @@ import type {
 } from "@/types/profile";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Explicit selections keep Auth and private institutional fields out of the DTO.
-export const PROFILE_COLUMNS =
-  "id,username,name,bio,courses(name),semester,institution,avatar_url";
+// Explicit selections and the social_profile RPC keep private fields out of DTOs.
 export const PROJECT_COLUMNS =
   "id,title,description,image_url,project_url,repository_url";
 export async function signedImage(
@@ -49,19 +47,15 @@ export async function getProfile(
   username?: string,
   profileId?: string,
 ): Promise<SocialProfile | null> {
-  const { client, user } = await requireUser();
+  const { client } = await requireUser();
   if (username !== undefined && !usernameSchema.safeParse(username).success)
     return null;
   if (profileId !== undefined && !idSchema.safeParse(profileId).success)
     return null;
-  const query = client.from("profiles").select(PROFILE_COLUMNS);
-  const { data, error } = await (
-    profileId !== undefined
-      ? query.eq("id", profileId)
-      : username === undefined
-        ? query.eq("user_id", user.id)
-        : query.eq("username", username.toLowerCase())
-  ).maybeSingle();
+  const { data, error } = await client.rpc("social_profile", {
+    target_username: username?.toLowerCase() ?? null,
+    target_profile: profileId ?? null,
+  });
   if (error)
     throw new Error("Não foi possível carregar o perfil. Tente novamente.");
   if (!data) return null;

@@ -15,6 +15,8 @@ import type { SocialProfile, ProfileLabel } from "@/types/profile";
 import type { ConnectionState } from "@/types/connections";
 import { ConnectionActions } from "@/components/connections/connection-actions";
 import { ProfileListings } from "@/components/marketplace/profile-listings";
+import { VerifiedCertificates } from "./verified-certificates";
+import { ReportForm, BlockForm } from "./social-safety";
 
 function Labels({
   title,
@@ -200,6 +202,8 @@ export function ProfileView({
           </div>
         )}
       </section>
+      <VerifiedCertificates profileId={profile.id} own={own} />
+      {own ? <Link href="/profile/privacidade" className="block font-medium text-primary underline">Privacidade do perfil</Link> : <section className="space-y-4" aria-label="Segurança na comunidade"><ReportForm type="profile" id={profile.id}/><BlockForm id={profile.id}/></section>}
       <ProfileListings profileId={profile.id} own={own} />
     </div>
   );

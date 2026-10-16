@@ -80,7 +80,7 @@ export async function getConnections(): Promise<ConnectionResult> {
     with relations as (
       select c.id,c.created_at,
         case when c.status='accepted' then 'accepted' when c.receiver_id=${profileId} then 'incoming' else 'outgoing' end as direction,
-        p.id as profile_id,p.username,p.name,course.name as course,p.semester,p.institution,p.avatar_url
+        p.id as profile_id,p.username,p.name,course.name as course,private.visible_semester(p.id) as semester,p.institution,p.avatar_url
       from public.connections c
       join public.profiles p on p.id=case when c.requester_id=${profileId} then c.receiver_id else c.requester_id end
       left join public.courses course on course.id=p.course_id

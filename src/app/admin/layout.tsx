@@ -30,6 +30,9 @@ export default async function AdminLayout({
         >
           <Link href="/admin/alunos">Alunos cadastrados</Link>
           <Link href="/admin/cursos">Cursos</Link>
+          <Link href="/admin/administradores">Administradores</Link>
+          <Link href="/admin/certificados">Certificados</Link>
+          <Link href="/admin/denuncias">Denúncias</Link>
           <Link href="/admin/alunos/importar">Importar planilha</Link>
           <Link href="/admin/alunos/importacoes">Histórico de importações</Link>
           <Link href="/auth/update-password">Alterar senha</Link>

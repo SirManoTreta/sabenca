@@ -12,6 +12,7 @@ import {
 } from "@/components/marketplace/listing-management";
 import { sellerHref } from "@/components/marketplace/listing-card";
 import { Button } from "@/components/ui/button";
+import { ReportForm } from "@/components/profile/social-safety";
 import {
   formatPrice,
   conditionLabels,
@@ -133,6 +134,7 @@ export default async function ListingPage({
           )}
         </section>
       </div>
+      {!own && <ReportForm type="listing" id={id} />}
       {own && (
         <section className="space-y-6">
           <Button asChild variant="outline">

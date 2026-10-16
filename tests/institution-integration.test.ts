@@ -208,6 +208,9 @@ describe("institutional workflow with real PostgreSQL transactions", () => {
   });
   it("revoked administrator cannot confirm a prepared file", async () => {
     const preview = await previewImport(admin, file, "alunos.xlsx");
+    // Revocation requires another confirmed administrator to remain available.
+    await state.sql`insert into auth.users(id,email,email_confirmed_at) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','backup-admin@example.test',now())`;
+    await state.sql`insert into private.admin_users(user_id,institution_id) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','fatece')`;
     await state.sql`delete from private.admin_users where user_id=${admin}`;
     await expect(
       confirmImport(admin, file, "alunos.xlsx", preview.receipt),
