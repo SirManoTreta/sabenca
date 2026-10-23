@@ -66,10 +66,12 @@ Bloqueios são direcionais na gestão e bilaterais na leitura: escondem perfis, 
 | Migração inicial | Backup e validação antes da promoção anterior; novas alterações usam apenas migrations incrementais, sem clonar DEV novamente. |
 | Uploads privados e falhas parciais | Ownership, limite real de request, rollback quando possível e fila de limpeza para certificados. |
 | Relações sociais | Constraints, RLS e locks por par para consistência entre bloqueio e conexão. |
-| Certificados | Análise humana apoiada por documento/URL/código; sem detecção automática de fraude. |
+| Certificados | Análise humana com arquivo ou URL HTTPS como evidência mínima; código isolado não permite aprovação. Sem detecção automática de fraude. |
 | Privacidade por campo | Revogar leitura direta de bio/semestre e devolver somente valores autorizados; ocultar no JSX seria insuficiente. |
 
 ## Operação e limites do trabalho
+
+A finalização de 22/10/2026 acrescenta a associação opcional entre certificado e serviço, validade derivada do documento real, identificação de credenciais expiradas, contato voluntário autorizado, desativação administrativa de anúncios denunciados e atualização individual de curso/semestre. As regras, migrations, testes e texto acadêmico estão no [relatório de finalização prática](FINALIZACAO_PRATICA_RELATORIO.md).
 
 `develop` usa Supabase DEV e Preview; `main` usa Supabase PROD e Production. A CI executa instalação, lint, typecheck, Vitest, build e cenários públicos Playwright. A suíte com dados hospedados exige opt-in e validação explícita do projeto DEV; cria somente fixtures isoladas e remove seus registros/arquivos ao finalizar.
 

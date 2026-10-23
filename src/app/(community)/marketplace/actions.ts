@@ -32,10 +32,14 @@ export async function saveListing(
   const { user } = await requireUser();
   const input = listingSchema.safeParse(
     Object.fromEntries(
-      ["title", "description", "price", "category_id", "condition"].map((k) => [
-        k,
-        form.get(k),
-      ]),
+      [
+        "title",
+        "description",
+        "price",
+        "category_id",
+        "condition",
+        "certificate_id",
+      ].map((k) => [k, form.get(k)]),
     ),
   );
   if (!input.success)

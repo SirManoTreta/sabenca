@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusControl } from "@/components/admin/status-control";
 import type { StudentListItem } from "@/types/institution";
+import type { Course } from "@/types/course";
+import { StudentAcademicsForm } from "@/components/admin/student-academics-form";
 export const metadata = { title: "Alunos cadastrados" };
 const labels = {
   pending: "Pendente",
@@ -23,9 +25,14 @@ export default async function StudentsPage({
   const q = (params.q ?? "").slice(0, 100).replace(/[%_]/g, "");
   const page = Math.min(10000, Math.max(1, Number(params.page) || 1));
   const sql = database();
-  const students = await sql<
-    StudentListItem[]
-  >`select s.id,s.ra,s.name,c.name as course,s.semester,s.status from private.institution_students s left join public.courses c on c.id=s.course_id where s.institution_id=${INSTITUTION_ID} and (s.ra ilike ${"%" + q + "%"} or s.name ilike ${"%" + q + "%"}) order by s.created_at desc,s.id limit 51 offset ${Math.floor(page - 1) * 50}`;
+  const [students, courses] = await Promise.all([
+    sql<
+      StudentListItem[]
+    >`select s.id,s.ra,s.name,c.name as course,s.course_id,s.semester,s.status from private.institution_students s left join public.courses c on c.id=s.course_id where s.institution_id=${INSTITUTION_ID} and (s.ra ilike ${"%" + q + "%"} or s.name ilike ${"%" + q + "%"}) order by s.created_at desc,s.id limit 51 offset ${Math.floor(page - 1) * 50}`,
+    sql<
+      Course[]
+    >`select id,name,normalized_name,status from public.courses where institution_id=${INSTITUTION_ID} order by name,id`,
+  ]);
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -80,6 +87,12 @@ export default async function StudentsPage({
                 </td>
                 <td className="p-4">
                   <StatusControl id={student.id} status={student.status} />
+                  <StudentAcademicsForm
+                    id={student.id}
+                    courseId={student.course_id}
+                    semester={student.semester}
+                    courses={courses}
+                  />
                 </td>
               </tr>
             ))}

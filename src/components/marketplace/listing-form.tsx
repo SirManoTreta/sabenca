@@ -16,13 +16,20 @@ import {
   IMAGE_SIZE_ERROR,
 } from "@/lib/validations/image";
 import { MAX_LISTING_IMAGES, conditionLabels } from "@/lib/validations/listing";
-import type { Listing, Category, MarketplaceState } from "@/types/marketplace";
+import type {
+  Listing,
+  Category,
+  MarketplaceState,
+  ListingCredential,
+} from "@/types/marketplace";
 export function ListingForm({
   categories,
   listing,
+  certificates = [],
 }: {
   categories: Category[];
   listing?: Listing;
+  certificates?: ListingCredential[];
 }) {
   const router = useRouter();
   const [category, setCategory] = useState(
@@ -179,6 +186,42 @@ export function ListingForm({
               ))}
             </select>
             <FieldError id="condition-error" errors={state.fields?.condition} />
+          </div>
+        )}
+        {service && (
+          <div>
+            <label
+              htmlFor="certificate_id"
+              className="mb-2 block font-semibold"
+            >
+              Credencial relacionada ao serviço
+            </label>
+            <select
+              id="certificate_id"
+              name="certificate_id"
+              className={fieldClass}
+              defaultValue={listing?.credential?.id ?? ""}
+              aria-describedby="certificate-help certificate-error"
+            >
+              <option value="">Nenhuma credencial</option>
+              {certificates.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title} — {c.issuer}
+                </option>
+              ))}
+            </select>
+            <p
+              id="certificate-help"
+              className="mt-2 text-sm text-muted-foreground"
+            >
+              Você pode associar uma credencial validada pelo SABENÇA a este
+              serviço. Apenas certificados verificados e atualmente válidos
+              aparecem aqui.
+            </p>
+            <FieldError
+              id="certificate-error"
+              errors={state.fields?.certificate_id}
+            />
           </div>
         )}
         {!listing && (

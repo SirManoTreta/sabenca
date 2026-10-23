@@ -501,3 +501,267 @@ test("privacy, reporting, bilateral block and responsive community", async ({
     await adminContext.close();
   }
 });
+
+test("service credential, optional contact, invalidation and actual listing moderation", async ({
+  page,
+  browser,
+  fixture: f,
+}) => {
+  await login(page, f.a);
+  const certificateTitle = `Credencial serviço ${f.token}`;
+  const listingTitle = `Serviço com credencial ${f.token}`;
+  await page.goto("/profile/certificados");
+  await page.getByLabel("Título", { exact: true }).fill(certificateTitle);
+  await page.getByLabel("Instituição emissora").fill("Instituição de teste");
+  await page.getByLabel("Data de emissão", { exact: true }).fill("2026-01-01");
+  await page
+    .getByLabel("URL de verificação (opcional, HTTPS)")
+    .fill("https://example.test/credencial");
+  await page
+    .getByRole("button", { name: "Cadastrar certificado", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: certificateTitle, exact: true }),
+  ).toBeVisible();
+  const peerContext = await browser.newContext(),
+    peer = await peerContext.newPage();
+  const staffContext = await browser.newContext(),
+    staff = await staffContext.newPage();
+  try {
+    await login(staff, f.staff, true);
+    await staff.goto("/admin/certificados");
+    const review = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", {
+        name: certificateTitle,
+        exact: true,
+      }),
+    });
+    await review
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(review.getByText(/Status: verified/)).toBeVisible();
+    await page.goto("/profile/privacidade");
+    await page
+      .getByLabel("Link de contato", { exact: true })
+      .fill("https://wa.me/5511999999999");
+    await page
+      .getByLabel(
+        "Autorizo exibir este contato aos estudantes que podem ver meus anúncios.",
+        { exact: true },
+      )
+      .check();
+    await page
+      .getByRole("button", { name: "Salvar contato", exact: true })
+      .click();
+    await expect(
+      page.getByText("Contato salvo.", { exact: true }),
+    ).toBeVisible();
+    await page.goto("/marketplace/novo");
+    await page
+      .getByLabel("Categoria", { exact: true })
+      .selectOption({ label: "Livros" });
+    await expect(
+      page.getByLabel("Credencial relacionada ao serviço"),
+    ).toHaveCount(0);
+    await page
+      .getByLabel("Categoria", { exact: true })
+      .selectOption({ label: "Serviços" });
+    await page.getByLabel("Título do anúncio").fill(listingTitle);
+    await page
+      .getByLabel("Descrição", { exact: true })
+      .fill("Serviço para estudantes com documentação analisada.");
+    await page.getByLabel("Preço (R$)").fill("50,00");
+    const [cert] =
+      await f.sql`select id from public.profile_certificates where user_id=${f.a.userId} and title=${certificateTitle}`;
+    await page
+      .getByLabel("Credencial relacionada ao serviço")
+      .selectOption(cert.id);
+    await page
+      .getByRole("button", { name: "Publicar anúncio", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/marketplace\/[a-f0-9-]{36}$/);
+    const listingUrl = new URL(page.url()).pathname;
+    await page.goto(`${listingUrl}/editar`);
+    await expect(
+      page.getByLabel("Credencial relacionada ao serviço"),
+    ).toHaveValue(cert.id);
+    await page
+      .getByRole("button", { name: "Salvar alterações", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`${listingUrl}$`));
+    await login(peer, f.b);
+    await peer.goto(listingUrl);
+    await expect(
+      peer.getByText("Credencial verificada pelo SABENÇA", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      peer.getByRole("heading", { name: certificateTitle, exact: true }),
+    ).toBeVisible();
+    await expect(
+      peer.getByRole("link", { name: "Entrar em contato", exact: true }),
+    ).toHaveAttribute("href", "https://wa.me/5511999999999");
+    for (const width of [360, 1440]) {
+      await peer.setViewportSize({ width, height: 900 });
+      await fits(peer);
+      await peer.screenshot({
+        path: test.info().outputPath(`service-credential-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+    const body = await peer.locator("body").textContent();
+    for (const value of ["file_path", f.staff.userId, f.a.email, f.a.studentId])
+      expect(body).not.toContain(value);
+    await page.goto("/profile/privacidade");
+    await page
+      .getByLabel(
+        "Autorizo exibir este contato aos estudantes que podem ver meus anúncios.",
+        { exact: true },
+      )
+      .uncheck();
+    await page
+      .getByRole("button", { name: "Salvar contato", exact: true })
+      .click();
+    await expect(
+      page.getByText("Contato salvo.", { exact: true }),
+    ).toBeVisible();
+    await peer.reload();
+    await expect(
+      peer.getByRole("link", { name: "Entrar em contato", exact: true }),
+    ).toHaveCount(0);
+    await page.goto("/profile/certificados");
+    const own = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: certificateTitle, exact: true }),
+    });
+    await own.getByText("Editar certificado", { exact: true }).click();
+    await own.getByLabel("Validade (opcional)").fill("2026-01-02");
+    await own
+      .getByRole("button", { name: "Salvar certificado", exact: true })
+      .click();
+    await expect(
+      own.getByText("Status: Pendente de análise", { exact: true }),
+    ).toBeVisible();
+    await peer.reload();
+    await expect(
+      peer.getByText("Credencial verificada pelo SABENÇA", { exact: true }),
+    ).toHaveCount(0);
+    await staff.reload();
+    await review
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(review.getByText(/Status: verified/)).toBeVisible();
+    await peer.goto(`/users/${f.a.username}`);
+    await expect(
+      peer.getByText(
+        "Credencial expirada · documento anteriormente verificado",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await peer.goto(listingUrl);
+    await expect(
+      peer.getByText("Credencial verificada pelo SABENÇA", { exact: true }),
+    ).toHaveCount(0);
+    await page.reload();
+    await own
+      .getByLabel("Confirmo excluir este certificado e seu documento")
+      .check();
+    await own
+      .getByRole("button", { name: "Excluir certificado", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: certificateTitle, exact: true }),
+    ).toHaveCount(0);
+    await peer.reload();
+    await expect(
+      peer.getByRole("heading", { name: listingTitle, exact: true }),
+    ).toBeVisible();
+    await peer.getByText("Denunciar anúncio", { exact: true }).click();
+    await peer
+      .getByLabel("Detalhes (opcional)")
+      .fill(`Moderação serviço ${f.token}`);
+    await peer
+      .getByRole("button", { name: "Enviar denúncia", exact: true })
+      .click();
+    await expect(
+      peer.getByText("Denúncia enviada à administração.", { exact: true }),
+    ).toBeVisible();
+    await staff.goto("/admin/denuncias");
+    const report = staff
+      .getByRole("article")
+      .filter({ hasText: `Moderação serviço ${f.token}` });
+    await report
+      .getByRole("link", { name: "Consultar conteúdo denunciado", exact: true })
+      .click();
+    await staff
+      .getByLabel("Confirmo desativar administrativamente este anúncio")
+      .check();
+    await staff
+      .getByRole("button", {
+        name: "Desativar anúncio denunciado",
+        exact: true,
+      })
+      .click();
+    await expect(
+      staff.getByText(
+        "Anúncio desativado. Denúncia registrada como actioned.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await peer.goto(listingUrl);
+    await expect(
+      peer.getByRole("heading", { name: "Anúncio indisponível", exact: true }),
+    ).toBeVisible();
+    const listingId = listingUrl.split("/").pop()!;
+    expect(
+      (await f.sql`select status from public.listings where id=${listingId}`)[0]
+        .status,
+    ).toBe("inactive");
+    for (const width of [360, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/profile/privacidade");
+      await fits(page);
+      await page.goto(`${listingUrl}/editar`);
+      await fits(page);
+    }
+  } finally {
+    await peerContext.close();
+    await staffContext.close();
+  }
+});
+
+test("administrator updates academic semester without changing student identity", async ({
+  page,
+  browser,
+  fixture: f,
+}) => {
+  await login(page, f.staff, true);
+  await page
+    .getByLabel("Pesquisar aluno por RA ou nome", { exact: true })
+    .fill(f.a.ra);
+  await page.getByRole("button", { name: "Pesquisar", exact: true }).click();
+  const row = page.getByRole("row").filter({ hasText: f.a.ra });
+  await row.getByText("Atualizar curso e semestre", { exact: true }).click();
+  await row.getByLabel("Semestre acadêmico", { exact: true }).fill("9");
+  await row
+    .getByRole("button", { name: "Salvar dados acadêmicos", exact: true })
+    .click();
+  await expect(
+    row.getByText("Dados acadêmicos atualizados.", { exact: true }),
+  ).toBeVisible();
+  const [student] =
+    await f.sql`select ra,auth_user_id,semester from private.institution_students where id=${f.a.studentId}`;
+  expect(student).toMatchObject({
+    ra: f.a.ra,
+    auth_user_id: f.a.userId,
+    semester: 9,
+  });
+  const context = await browser.newContext(),
+    studentPage = await context.newPage();
+  try {
+    await login(studentPage, f.a);
+    await studentPage.goto("/profile");
+    await expect(studentPage.getByText(/9º semestre/)).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

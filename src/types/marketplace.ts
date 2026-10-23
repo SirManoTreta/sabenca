@@ -2,6 +2,13 @@ export type ListingCondition = "new" | "like_new" | "used" | "not_applicable";
 export type ListingStatus = "active" | "sold" | "inactive";
 export type Category = { id: string; name: string; is_service: boolean };
 export type ListingImage = { id: string; position: number; url: string | null };
+export type ListingCredential = {
+  id: string;
+  title: string;
+  issuer: string;
+  issue_date: string;
+  expiration_date: string | null;
+};
 export type ListingSeller = {
   id: string;
   username: string | null;
@@ -22,6 +29,8 @@ export type Listing = {
   category: Category;
   seller: ListingSeller;
   images: ListingImage[];
+  credential?: ListingCredential | null;
+  contact_url?: string | null;
 };
 export type MarketplaceParams = Record<string, string | string[] | undefined>;
 export type MarketplaceState = {

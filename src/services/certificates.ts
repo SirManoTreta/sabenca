@@ -5,6 +5,19 @@ import { certificateSchema } from "@/lib/validations/certificate";
 import { idSchema } from "@/lib/validations/project";
 import { requireUser, requireAdmin } from "./session";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ListingCredential } from "@/types/marketplace";
+export async function eligibleCertificates(actor: string) {
+  return withCertificateActor(actor, async (sql) => [
+    ...(await sql<
+      ListingCredential[]
+    >`select id,title,issuer,issue_date::text,expiration_date::text
+      from public.profile_certificates c where user_id=${actor} and status='verified'
+      and issue_date<=(now() at time zone 'America/Sao_Paulo')::date
+      and (expiration_date is null or expiration_date>=(now() at time zone 'America/Sao_Paulo')::date)
+      and (private.valid_https_url(verification_url) or exists(select 1 from storage.objects where bucket_id='certificates' and name=c.file_path))
+      order by title,id`),
+  ]);
+}
 export type Certificate = {
   id: string;
   title: string;
@@ -19,7 +32,7 @@ export type Certificate = {
   updated_at: string;
 };
 const columns =
-  "id,title,issuer,issue_date::text,expiration_date::text,credential_id,verification_url,status,rejection_reason,(file_path is not null) as has_file,updated_at::text";
+  "id,title,issuer,issue_date::text,expiration_date::text,credential_id,verification_url,status,rejection_reason,exists(select 1 from storage.objects s where s.bucket_id='certificates' and s.name=file_path) as has_file,updated_at::text";
 export async function withCertificateActor<T>(
   actor: string,
   task: (sql: TransactionSql) => Promise<T>,

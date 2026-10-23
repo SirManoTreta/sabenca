@@ -6,9 +6,11 @@ import { FormFeedback } from "@/components/profile/form-feedback";
 export function CertificateReview({
   id,
   version,
+  hasEvidence,
 }: {
   id: string;
   version: string;
+  hasEvidence: boolean;
 }) {
   const [state, action, pending] = useActionState(reviewDocument, {});
   return (
@@ -19,12 +21,21 @@ export function CertificateReview({
         Resultado da análise
         <select
           name="status"
+          defaultValue={hasEvidence ? "verified" : "rejected"}
           className="mt-1 block w-full rounded-xl border border-border bg-white p-3"
         >
-          <option value="verified">Verificar documento</option>
+          <option value="verified" disabled={!hasEvidence}>
+            Verificar documento
+          </option>
           <option value="rejected">Rejeitar documento</option>
         </select>
       </label>
+      {!hasEvidence && (
+        <p className="text-sm">
+          Aprovação exige arquivo enviado ou URL HTTPS de verificação válida.
+          Consulte a evidência antes de aprovar.
+        </p>
+      )}
       <label className="block text-sm font-medium">
         Motivo da rejeição
         <textarea

@@ -17,10 +17,20 @@ Duração sugerida: 6–8 minutos. Usar DEV/Preview e dados fictícios. Nunca mo
 4. **Networks e conexão (1 min).** Buscar uma habilidade ou filtrar curso. Abrir o perfil de um colega, ver portfólio e solicitar conexão. Na segunda sessão, aceitar. Mostrar o estado conectado.
 5. **Marketplace integrado (1 min).** Abrir serviço do colega. Mostrar ausência de condição física no serviço, perfil do vendedor e acesso aos anúncios pelo Perfil. Criar/editar anúncio fictício se houver tempo. Não há pagamento ou entrega integrados.
 6. **Privacidade e convivência (45 s).** Mostrar as opções de privacidade, denúncia e confirmação de bloqueio. Explicar que a proteção também existe no banco e que desbloquear não restaura conexões.
-7. **Administração (1–2 min).** Mostrar alunos, cursos e prévia de importação fictícia. Abrir Administradores e explicar convite/revogação protegida. Analisar certificado por documento/URL/código, verificar e mostrar o selo no Perfil. Registrar o tratamento de uma denúncia.
+7. **Administração (1–2 min).** Mostrar alunos, cursos e prévia de importação fictícia. Abrir Administradores e explicar convite/revogação protegida. Analisar certificado com arquivo ou URL de verificação, verificar e mostrar o selo no Perfil. O código isolado não permite aprovação. Registrar o tratamento de uma denúncia.
 8. **Encerramento (30 s).** Mostrar os links para documentos comunitários e citar os testes, ambientes separados e CI. O diferencial é percorrer descoberta, confiança acadêmica, portfólio e oferta sem sair da comunidade.
 
 ## Cuidados na demonstração
+
+Para demonstrar a integração final do experimento:
+
+1. Enviar um certificado fictício com arquivo ou URL HTTPS de verificação e aprová-lo na sessão administrativa.
+2. Em Perfil > Privacidade, preencher um link de contato fictício/autorizado e marcar o consentimento de exibição.
+3. Criar um anúncio na categoria Serviços e selecionar a credencial relacionada. Criar outro serviço com “Nenhuma credencial” para comparar os dois estados.
+4. Na sessão de outro aluno, abrir o serviço e mostrar vendedor, curso, semestre autorizado, instituição, credencial analisada e botão “Entrar em contato”. O original permanece privado.
+5. Editar o certificado e atualizar o anúncio na outra sessão: a credencial deixa de aparecer enquanto a documentação está pendente. Para mostrar expiração, usar documento histórico com validade vencida e observar o rótulo de expiração no Perfil.
+6. Denunciar o anúncio na sessão do comprador. Na administração, abrir “Consultar conteúdo denunciado”, confirmar e usar “Desativar anúncio denunciado”. O comprador deixa de acessar a oferta e o vendedor não consegue republicá-la pelo controle de status.
+7. Opcionalmente, em Alunos cadastrados, usar “Atualizar curso e semestre” em um aluno fictício e conferir a atualização no Perfil/Marketplace.
 
 - O selo deve ser lido como **“Documento verificado pelo SABENÇA”**, sem afirmar “certificado verdadeiro”.
 - Um bloqueio remove conexões; usar somente contas fictícias preparadas para a apresentação.

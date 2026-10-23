@@ -50,7 +50,11 @@ export default async function CertificateQueue() {
                 Baixar documento privado
               </a>
             )}
-            <CertificateReview id={c.id} version={c.updated_at} />
+            <CertificateReview
+              id={c.id}
+              version={c.updated_at}
+              hasEvidence={c.has_file || !!c.verification_url}
+            />
           </article>
         ))}
       </div>

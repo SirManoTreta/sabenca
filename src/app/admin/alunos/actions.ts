@@ -7,6 +7,29 @@ import { MAX_FILE_BYTES } from "@/lib/institution/importer";
 import { database } from "@/lib/institution/database";
 import { INSTITUTION_ID } from "@/lib/institution/config";
 import type { ImportState } from "@/types/institution";
+import { updateStudentAcademics } from "@/services/student-academics";
+import type { ProfileActionState } from "@/types/profile";
+export async function changeStudentAcademics(
+  _: ProfileActionState,
+  form: FormData,
+): Promise<ProfileActionState> {
+  const { user } = await requireAdmin();
+  try {
+    await updateStudentAcademics(user.id, Object.fromEntries(form));
+  } catch {
+    return {
+      error:
+        "Não foi possível atualizar. Confira o curso e um semestre entre 1 e 30.",
+    };
+  }
+  revalidatePath("/admin/alunos");
+  revalidatePath("/profile", "layout");
+  revalidatePath("/users/[username]", "page");
+  revalidatePath("/users/id/[id]", "page");
+  revalidatePath("/networks");
+  revalidatePath("/marketplace", "layout");
+  return { success: "Dados acadêmicos atualizados." };
+}
 export async function importStudents(
   _: ImportState,
   form: FormData,

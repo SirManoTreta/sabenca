@@ -1,6 +1,7 @@
 import { reportTarget } from "@/services/moderation";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { DeactivateListingForm } from "@/components/admin/deactivate-listing-form";
 export default async function ReportTargetPage({
   params,
 }: {
@@ -21,6 +22,18 @@ export default async function ReportTargetPage({
       <Link href="/admin/denuncias" className="text-primary underline">
         Voltar às denúncias
       </Link>
+      {target.id && (
+        <>
+          <p>Status: {target.status as string}</p>
+          <Link
+            href={`/marketplace/${target.id}`}
+            className="block text-primary underline"
+          >
+            Abrir anúncio na comunidade
+          </Link>
+          <DeactivateListingForm reportId={id} />
+        </>
+      )}
     </article>
   );
 }
