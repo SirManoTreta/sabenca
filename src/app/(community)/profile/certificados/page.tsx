@@ -4,6 +4,7 @@ import {
   CertificateCleanup,
 } from "@/components/profile/certificate-form";
 import Link from "next/link";
+import { certificateExpired } from "@/lib/certificates";
 export const metadata = { title: "Meus certificados" };
 export default async function CertificatesPage() {
   const certificates = await ownCertificates();
@@ -13,7 +14,8 @@ export default async function CertificatesPage() {
       <p>
         Somente metadados verificados aparecem no seu perfil. Documentos ficam
         acessíveis apenas a você e à administração. A análise da plataforma não
-        substitui a validação pela instituição emissora.
+        substitui a validação pela instituição emissora. Para aprovação, forneça
+        um arquivo ou uma URL HTTPS de verificação.
       </p>
       <section className="rounded-2xl border border-border p-6">
         <h2 className="mb-5 text-xl font-bold">Adicionar certificado</h2>
@@ -29,7 +31,9 @@ export default async function CertificatesPage() {
           <p>
             Status:{" "}
             {c.status === "verified"
-              ? "Documento verificado pelo SABENÇA"
+              ? certificateExpired(c.expiration_date)
+                ? "Credencial expirada · documento anteriormente verificado"
+                : "Documento verificado pelo SABENÇA"
               : c.status === "rejected"
                 ? "Rejeitado"
                 : "Pendente de análise"}

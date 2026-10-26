@@ -59,6 +59,10 @@ export const listingSchema = z.object({
   price: priceSchema,
   category_id: z.uuid("Escolha uma categoria válida."),
   condition: conditionSchema,
+  certificate_id: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.uuid("Escolha uma credencial válida.").optional(),
+  ),
 });
 const optionalId = z.preprocess(
   (v) => (v === "" ? undefined : v),
@@ -102,6 +106,8 @@ export function conditionForCategory(
   service: boolean,
 ): ListingInput {
   if (service) return { ...input, condition: "not_applicable" };
+  if (input.certificate_id)
+    throw new Error("Somente serviços podem receber credenciais.");
   if (input.condition === "not_applicable")
     throw new Error("Escolha a condição do produto.");
   return input;

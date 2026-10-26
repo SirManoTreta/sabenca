@@ -1,5 +1,6 @@
 import { requireUser } from "@/services/session";
 import Link from "next/link";
+import { certificateExpired } from "@/lib/certificates";
 type Metadata = {
   id: string;
   title: string;
@@ -50,7 +51,9 @@ export async function VerifiedCertificates({
                 {c.expiration_date ? ` · Válido até ${c.expiration_date}` : ""}
               </p>
               <p className="text-sm font-semibold text-primary">
-                Documento verificado pelo SABENÇA
+                {certificateExpired(c.expiration_date)
+                  ? "Credencial expirada · documento anteriormente verificado"
+                  : "Documento verificado pelo SABENÇA"}
               </p>
               {c.credential_id && (
                 <p className="break-words text-sm">

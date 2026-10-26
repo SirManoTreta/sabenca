@@ -45,6 +45,15 @@ export async function listReports() {
     >`select id,target_type,target_id,reason,details,status from public.reports order by (status='pending') desc,created_at limit 100`),
   ]);
 }
+export async function deactivateReportedListing(
+  actor: string,
+  reportId: string,
+) {
+  idSchema.parse(reportId);
+  await withCertificateActor(actor, async (sql) => {
+    await sql`select public.deactivate_report_listing(${reportId})`;
+  });
+}
 export async function reportTarget(id: string) {
   const { user } = await requireAdmin();
   idSchema.parse(id);
@@ -61,7 +70,7 @@ export async function reportTarget(id: string) {
       return p ?? null;
     }
     const [l] =
-      await sql`select title,description,'Anúncio do Marketplace' as kind,status from public.listings where id=${report.target_id}`;
+      await sql`select id,title,description,'Anúncio do Marketplace' as kind,status from public.listings where id=${report.target_id}`;
     return l ?? null;
   });
 }

@@ -21,8 +21,9 @@ export function ReportReview({ id }: { id: string }) {
       </label>
       <p className="text-sm">
         Registrar o resultado não suspende contas nem exclui conteúdo
-        automaticamente. Use a gestão de alunos se a análise exigir restrição
-        institucional.
+        automaticamente. Para anúncios, abra “Consultar conteúdo denunciado” e
+        use a desativação administrativa. Use a gestão de alunos se a análise
+        exigir restrição institucional.
       </p>
       <FormFeedback state={state} />
       <Button disabled={pending}>

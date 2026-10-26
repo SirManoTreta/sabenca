@@ -27,6 +27,14 @@ export default function PrivacyPolicy() {
       </p>
       <h2 className="text-xl font-bold">Documentos e moderação</h2>
       <p>
+        O contato para Marketplace é opcional: você fornece um link HTTPS e
+        autoriza sua exibição em Privacidade do perfil. O sistema não preenche
+        esse contato com telefone ou e-mail institucional. Você pode
+        desativá-lo; ocultar anúncios ou bloquear um usuário também restringe
+        sua leitura pela plataforma. Ao abrir o link, o contato ocorre no
+        serviço externo escolhido por você.
+      </p>
+      <p>
         Certificados originais ficam em bucket privado, acessíveis ao titular e
         à administração por links temporários. Somente metadados de certificados
         analisados e verificados aparecem a outros membros. Denúncias são

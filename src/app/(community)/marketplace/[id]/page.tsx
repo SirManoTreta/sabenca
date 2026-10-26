@@ -116,9 +116,54 @@ export default async function ListingPage({
               </p>
             </div>
           </div>
-          <Button asChild>
-            <Link href={sellerHref(listing.seller)}>Ver perfil</Link>
-          </Button>
+          {listing.credential && (
+            <div className="space-y-2 rounded-xl border border-border bg-white p-4">
+              <p className="font-semibold text-primary">
+                Credencial verificada pelo SABENÇA
+              </p>
+              <h3 className="break-words font-bold">
+                {listing.credential.title}
+              </h3>
+              <p className="break-words text-sm">{listing.credential.issuer}</p>
+              <p className="text-sm">
+                Emitido em:{" "}
+                {listing.credential.issue_date.split("-").reverse().join("/")}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Documento analisado e validado pela plataforma.
+              </p>
+            </div>
+          )}
+          {!listing.contact_url && (
+            <p className="text-sm text-muted-foreground">
+              {own ? (
+                <Link
+                  className="text-primary underline"
+                  href="/profile/privacidade"
+                >
+                  Configurar forma de contato para Marketplace
+                </Link>
+              ) : (
+                "Este estudante ainda não disponibilizou um contato para o Marketplace."
+              )}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            {listing.contact_url && (
+              <Button asChild>
+                <a
+                  href={listing.contact_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Entrar em contato
+                </a>
+              </Button>
+            )}
+            <Button asChild>
+              <Link href={sellerHref(listing.seller)}>Ver perfil</Link>
+            </Button>
+          </div>
           <Link
             className="block text-sm font-semibold text-primary"
             href={marketplaceHref({ seller: listing.seller.id })}

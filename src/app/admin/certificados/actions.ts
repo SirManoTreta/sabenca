@@ -19,10 +19,12 @@ export async function reviewDocument(
   } catch {
     return {
       error:
-        "Não foi possível analisar. Recarregue para conferir a versão atual. Para rejeitar, informe um motivo de até 1.000 caracteres.",
+        "Não foi possível analisar. Recarregue para conferir a versão atual. Aprovar exige arquivo enviado ou URL HTTPS válida. Para rejeitar, informe um motivo de até 1.000 caracteres.",
     };
   }
   revalidatePath("/admin/certificados");
   revalidatePath("/profile", "layout");
+  revalidatePath("/marketplace", "layout");
+  revalidatePath("/users/[username]", "page");
   return { success: "Análise registrada." };
 }

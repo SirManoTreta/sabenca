@@ -109,6 +109,8 @@ export async function changeCertificate(
     }
     revalidatePath("/profile", "layout");
     revalidatePath("/admin/certificados");
+    revalidatePath("/marketplace", "layout");
+    revalidatePath("/users/[username]", "page");
     return {
       success:
         form.get("operation") === "delete"
@@ -116,7 +118,12 @@ export async function changeCertificate(
           : "Certificado salvo. Alterações serão analisadas pela administração.",
     };
   } catch (error) {
-    console.warn("SABENCA_CERTIFICATE_ACTION_FAILED",{code:error&&typeof error==="object"&&"code" in error?String(error.code):"UNKNOWN"});
+    console.warn("SABENCA_CERTIFICATE_ACTION_FAILED", {
+      code:
+        error && typeof error === "object" && "code" in error
+          ? String(error.code)
+          : "UNKNOWN",
+    });
     return {
       error:
         "Não foi possível concluir. Recarregue a página e tente novamente.",

@@ -28,6 +28,7 @@ import {
   certificateFile,
   queueCertificateCleanup,
   retryCertificateCleanup,
+  eligibleCertificates,
 } from "@/services/certificates";
 import {
   blockProfile,
@@ -35,6 +36,7 @@ import {
   reviewReport,
   savePrivacy,
   privacyKeys,
+  deactivateReportedListing,
 } from "@/services/moderation";
 import { searchNetworks } from "@/services/networks";
 import {
@@ -42,6 +44,8 @@ import {
   searchListings,
   changeListingStatus,
 } from "@/services/marketplace";
+import { saveMarketplaceContact } from "@/services/marketplace-contact";
+import { updateStudentAcademics } from "@/services/student-academics";
 const uid = (i: number) =>
   `80000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
 const pid = (i: number) =>
@@ -55,6 +59,32 @@ const cert = {
   credential_id: "ABC123",
   verification_url: "https://example.test/validar",
 };
+async function serviceInput(certificate_id?: string) {
+  const [category] =
+    await state.sql`select id from public.categories where is_service limit 1`;
+  return {
+    title: "Manutenção de computadores",
+    description: "Serviço universitário",
+    price: "50,00",
+    category_id: category.id,
+    condition: "not_applicable",
+    ...(certificate_id ? { certificate_id } : {}),
+  };
+}
+async function approvedCertificate(owner = uid(1), values = cert) {
+  const id = randomUUID();
+  await saveCertificate(owner, id, values, null);
+  await reviewCertificate(uid(4), id, "verified", "");
+  return id;
+}
+async function visibleCredential(id: string, viewer = uid(2)) {
+  return (
+    await asUser(
+      viewer,
+      `select public.listing_credential('${id}') as credential`,
+    )
+  )[0].credential;
+}
 async function asUser(actor: string, query: string) {
   return state.sql.begin(async (sql) => {
     await sql`select set_config('request.jwt.claim.sub',${actor},true)`;
@@ -114,7 +144,7 @@ beforeAll(async () => {
   )[0].id;
 });
 beforeEach(async () => {
-  await state.sql`truncate private.certificate_file_cleanup,public.profile_certificates,public.reports,public.user_blocks,public.profile_privacy,public.connections,public.listings,public.projects,public.profile_skills,public.profile_interests,storage.objects cascade`;
+  await state.sql`truncate private.certificate_file_cleanup,public.profile_certificates,public.reports,public.user_blocks,public.profile_privacy,public.marketplace_contacts,public.connections,public.listings,public.projects,public.profile_skills,public.profile_interests,storage.objects cascade`;
   await state.sql`update private.institution_students set status='active'`;
 });
 afterAll(async () => {
@@ -579,5 +609,465 @@ describe("profile privacy beyond the UI", () => {
     expect(
       await asUser(uid(1), "select id from public.profile_certificates"),
     ).toHaveLength(0);
+  });
+});
+
+describe("service credentials, consent and effective moderation", () => {
+  it("supports services with and without an optional current credential and keeps the DTO private", async () => {
+    const certificate = await approvedCertificate();
+    const input = await serviceInput(certificate);
+    const id = await saveListingData(uid(1), input);
+    await changeListingStatus(uid(1), id, "active");
+    const plain = await saveListingData(uid(1), await serviceInput());
+    await changeListingStatus(uid(1), plain, "active");
+    expect(await eligibleCertificates(uid(1))).toEqual([
+      expect.objectContaining({ id: certificate }),
+    ]);
+    expect(await eligibleCertificates(uid(2))).toEqual([]);
+    const credential = await visibleCredential(id);
+    expect(credential).toEqual({
+      id: certificate,
+      title: cert.title,
+      issuer: cert.issuer,
+      issue_date: cert.issue_date,
+      expiration_date: null,
+    });
+    expect(await visibleCredential(plain)).toBeNull();
+    const listings = (await searchListings(uid(2), {})).listings;
+    expect(listings).toHaveLength(2);
+    expect(listings.find((l) => l.id === id)?.credential).toEqual(credential);
+    for (const key of [
+      "file_path",
+      "verified_by",
+      "rejection_reason",
+      "contact_url",
+      "email",
+      "phone",
+      "birth_date",
+      "cpf_fingerprint",
+    ])
+      expect(JSON.stringify(listings)).not.toContain(`"${key}"`);
+    await saveListingData(
+      uid(1),
+      { ...input, title: "Serviço atualizado" },
+      id,
+    );
+    expect(await visibleCredential(id)).toEqual(credential);
+    await saveListingData(uid(1), await serviceInput(), id);
+    expect(await visibleCredential(id)).toBeNull();
+  });
+  it("rejects forged owner IDs, products and pending/rejected/expired credentials in services and direct SQL", async () => {
+    const foreign = await approvedCertificate(uid(2));
+    const pending = randomUUID(),
+      rejected = randomUUID();
+    await saveCertificate(uid(1), pending, cert, null);
+    await saveCertificate(uid(1), rejected, cert, null);
+    await reviewCertificate(
+      uid(4),
+      rejected,
+      "rejected",
+      "Documento incompleto",
+    );
+    const expired = await approvedCertificate(uid(1), {
+      ...cert,
+      expiration_date: "2026-01-02",
+    });
+    const service = await serviceInput();
+    const own = await approvedCertificate();
+    const id = await saveListingData(uid(1), service);
+    for (const certificate of [
+      foreign,
+      pending,
+      rejected,
+      expired,
+      randomUUID(),
+    ]) {
+      await expect(
+        saveListingData(uid(1), { ...service, certificate_id: certificate }),
+      ).rejects.toThrow("Credencial indisponível");
+      await expect(
+        asUser(
+          uid(1),
+          `update public.listings set certificate_id='${certificate}' where id='${id}'`,
+        ),
+      ).rejects.toThrow("credential unavailable");
+      await expect(
+        asUser(
+          uid(1),
+          `insert into public.listings(seller_id,title,description,price,category_id,condition,certificate_id) values ('${pid(1)}','Serviço direto','Teste',10,'${service.category_id}','not_applicable','${certificate}')`,
+        ),
+      ).rejects.toThrow("credential unavailable");
+    }
+    await expect(
+      saveListingData(uid(1), {
+        ...service,
+        category_id: category,
+        condition: "used",
+        certificate_id: own,
+      }),
+    ).rejects.toThrow("Somente serviços");
+    await expect(
+      asUser(
+        uid(1),
+        `update public.listings set category_id='${category}',condition='used',certificate_id='${own}' where id='${id}'`,
+      ),
+    ).rejects.toThrow("Only services");
+    await expect(
+      asUser(
+        uid(2),
+        `insert into public.listings(seller_id,title,description,price,category_id,condition,certificate_id) values ('${pid(1)}','Serviço forjado','Teste',10,'${service.category_id}','not_applicable','${own}')`,
+      ),
+    ).rejects.toThrow("credential unavailable");
+    expect((await eligibleCertificates(uid(1))).map((c) => c.id)).toEqual([
+      own,
+    ]);
+  });
+  it("derives validity on every read after editing, re-review, rejection, expiration and deletion", async () => {
+    const certificate = await approvedCertificate();
+    const id = await saveListingData(uid(1), await serviceInput(certificate));
+    await changeListingStatus(uid(1), id, "active");
+    await saveCertificate(
+      uid(1),
+      certificate,
+      { ...cert, title: "Documento alterado" },
+      undefined,
+    );
+    expect(
+      (
+        await state.sql`select status from public.profile_certificates where id=${certificate}`
+      )[0].status,
+    ).toBe("pending");
+    expect(await visibleCredential(id)).toBeNull();
+    await reviewCertificate(uid(4), certificate, "verified", "");
+    expect(await visibleCredential(id)).toMatchObject({
+      title: "Documento alterado",
+    });
+    await reviewCertificate(
+      uid(4),
+      certificate,
+      "rejected",
+      "Revisão documental",
+    );
+    expect(await visibleCredential(id)).toBeNull();
+    await saveCertificate(
+      uid(1),
+      certificate,
+      { ...cert, expiration_date: "2026-01-02" },
+      undefined,
+    );
+    await reviewCertificate(uid(4), certificate, "verified", "");
+    expect(await visibleCredential(id)).toBeNull();
+    expect(await eligibleCertificates(uid(1))).toHaveLength(0);
+    // History remains in the profile even though it cannot be used in services.
+    expect(
+      await asUser(
+        uid(2),
+        `select * from public.visible_certificates('${pid(1)}')`,
+      ),
+    ).toHaveLength(1);
+    await deleteCertificate(uid(1), certificate, async () => {});
+    expect(
+      (
+        await state.sql`select certificate_id from public.listings where id=${id}`
+      )[0].certificate_id,
+    ).toBeNull();
+    expect((await searchListings(uid(2), {})).total).toBe(1);
+    expect(await visibleCredential(id)).toBeNull();
+  });
+  it("requires a real stored file or a valid verification URL even for direct administrative approval", async () => {
+    const id = randomUUID(),
+      path = `${uid(1)}/${id}/${randomUUID()}.pdf`;
+    await saveCertificate(uid(1), id, { ...cert, verification_url: "" }, path);
+    await expect(reviewCertificate(uid(4), id, "verified", "")).rejects.toThrow(
+      "evidence required",
+    );
+    await expect(
+      asUser(
+        uid(4),
+        `update public.profile_certificates set status='verified' where id='${id}'`,
+      ),
+    ).rejects.toThrow("evidence required");
+    await expect(
+      reviewCertificate(uid(4), id, "rejected", " "),
+    ).rejects.toThrow("motivo");
+    await expect(
+      asUser(
+        uid(4),
+        `update public.profile_certificates set status='rejected',rejection_reason=null where id='${id}'`,
+      ),
+    ).rejects.toThrow();
+    await state.sql`insert into storage.objects(bucket_id,name) values ('certificates',${path})`;
+    await reviewCertificate(uid(4), id, "verified", "");
+    const listing = await saveListingData(uid(1), await serviceInput(id));
+    await changeListingStatus(uid(1), listing, "active");
+    expect(await visibleCredential(listing)).not.toBeNull();
+    await state.sql`delete from storage.objects where name=${path}`;
+    expect(await visibleCredential(listing)).toBeNull();
+    expect(await eligibleCertificates(uid(1))).toHaveLength(0);
+    await expect(
+      asUser(
+        uid(1),
+        `insert into storage.objects(bucket_id,name) values ('certificates','${path}')`,
+      ),
+    ).rejects.toThrow("row-level security");
+    // Raw Data API writes cannot make a malformed source into valid evidence.
+    await asUser(
+      uid(1),
+      `update public.profile_certificates set verification_url='https:///' where id='${id}'`,
+    );
+    // Editing makes a new upload eligible again, but never reinstates approval.
+    await asUser(
+      uid(1),
+      `insert into storage.objects(bucket_id,name) values ('certificates','${path}')`,
+    );
+    expect(
+      (
+        await state.sql`select status from public.profile_certificates where id=${id}`
+      )[0].status,
+    ).toBe("pending");
+    await state.sql`delete from storage.objects where name=${path}`;
+    await expect(reviewCertificate(uid(4), id, "verified", "")).rejects.toThrow(
+      "evidence required",
+    );
+  });
+  it("hides credentials from blocked, inactive and nonmember viewers and inactive sellers", async () => {
+    const certificate = await approvedCertificate();
+    const id = await saveListingData(uid(1), await serviceInput(certificate));
+    await changeListingStatus(uid(1), id, "active");
+    expect(await visibleCredential(id, uid(4))).toBeNull();
+    await blockProfile(uid(2), pid(1), true);
+    expect(await visibleCredential(id)).toBeNull();
+    await blockProfile(uid(2), pid(1), false);
+    await state.sql`update private.institution_students set status='inactive' where auth_user_id=${uid(1)}`;
+    expect(await visibleCredential(id)).toBeNull();
+    expect((await searchListings(uid(2), {})).total).toBe(0);
+  });
+  it("publishes only a voluntarily entered, enabled contact; respects privacy and bilateral blocks", async () => {
+    const lookup = async (viewer = uid(2)) =>
+      (
+        await asUser(
+          viewer,
+          `select public.marketplace_contact('${pid(1)}') as url`,
+        )
+      )[0].url;
+    expect(await lookup()).toBeNull();
+    await saveMarketplaceContact(uid(1), {
+      url: "https://wa.me/5511999999999",
+      enabled: false,
+    });
+    expect(await lookup()).toBeNull();
+    expect(
+      await asUser(uid(2), "select * from public.marketplace_contacts"),
+    ).toHaveLength(0);
+    await expect(
+      asUser(
+        uid(2),
+        `insert into public.marketplace_contacts(user_id,url,enabled) values ('${uid(1)}','https://attacker.test',true)`,
+      ),
+    ).rejects.toThrow();
+    await saveMarketplaceContact(uid(1), {
+      url: "https://wa.me/5511999999999",
+      enabled: true,
+    });
+    expect(await lookup()).toBe("https://wa.me/5511999999999");
+    expect(await lookup(uid(4))).toBeNull();
+    await savePrivacy(
+      uid(1),
+      Object.fromEntries(privacyKeys.map((k) => [k, k !== "show_listings"])),
+    );
+    expect(await lookup()).toBeNull();
+    await savePrivacy(
+      uid(1),
+      Object.fromEntries(privacyKeys.map((k) => [k, true])),
+    );
+    await blockProfile(uid(1), pid(2), true);
+    expect(await lookup()).toBeNull();
+    await blockProfile(uid(1), pid(2), false);
+    await saveMarketplaceContact(uid(1), {
+      url: "https://wa.me/5511999999999",
+      enabled: false,
+    });
+    expect(await lookup()).toBeNull();
+    await expect(
+      asUser(
+        uid(1),
+        `update public.marketplace_contacts set url='javascript:alert(1)',enabled=true where user_id='${uid(1)}'`,
+      ),
+    ).rejects.toThrow();
+    await state.sql`update private.institution_students set status='blocked' where auth_user_id=${uid(1)}`;
+    await expect(
+      saveMarketplaceContact(uid(1), {
+        url: "https://example.test",
+        enabled: true,
+      }),
+    ).rejects.toThrow();
+  });
+  it("deactivates a reported listing atomically, records the actor and prevents seller republication", async () => {
+    const id = await saveListingData(uid(1), await serviceInput());
+    await changeListingStatus(uid(1), id, "active");
+    await reportContent(uid(2), {
+      target_type: "listing",
+      target_id: id,
+      reason: "fraud",
+    });
+    const [report] =
+      await state.sql`select id from public.reports where target_id=${id}`;
+    await expect(deactivateReportedListing(uid(2), report.id)).rejects.toThrow(
+      "Administrator required",
+    );
+    expect((await searchListings(uid(2), {})).total).toBe(1);
+    await deactivateReportedListing(uid(4), report.id);
+    expect((await searchListings(uid(2), {})).total).toBe(0);
+    expect((await searchListings(uid(1), {}, true)).total).toBe(1);
+    expect(
+      (
+        await state.sql`select status,reviewed_by from public.reports where id=${report.id}`
+      )[0],
+    ).toMatchObject({ status: "actioned", reviewed_by: uid(4) });
+    expect(
+      (
+        await state.sql`select moderated_by from private.listing_moderation where listing_id=${id}`
+      )[0].moderated_by,
+    ).toBe(uid(4));
+    await expect(changeListingStatus(uid(1), id, "active")).rejects.toThrow(
+      "disabled by moderation",
+    );
+    await expect(
+      asUser(
+        uid(1),
+        `update public.listings set status='active' where id='${id}'`,
+      ),
+    ).rejects.toThrow("disabled by moderation");
+    await expect(
+      asUser(uid(1), "delete from private.listing_moderation"),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      deactivateReportedListing(uid(4), randomUUID()),
+    ).rejects.toThrow("unavailable");
+  });
+});
+
+describe("controlled academic updates", () => {
+  it("updates course and semester through the existing sync without changing identity, social data or content", async () => {
+    await state.sql`insert into public.courses(institution_id,name,status) values ('fatece','Curso para atualização acadêmica','active') on conflict do nothing`;
+    const [student] =
+      await state.sql`select id,ra,email,cpf_fingerprint,phone,birth_date::text,status,auth_user_id from private.institution_students where auth_user_id=${uid(1)}`;
+    const [course] =
+      await state.sql`select id from public.courses where institution_id='fatece' and status='active' limit 1`;
+    const [auth] = await state.sql`select * from auth.users where id=${uid(1)}`;
+    const certificate = await approvedCertificate();
+    const listing = await saveListingData(
+      uid(1),
+      await serviceInput(certificate),
+    );
+    await updateStudentAcademics(uid(4), {
+      id: student.id,
+      course_id: course.id,
+      semester: "9",
+      name: "Forged",
+      status: "blocked",
+      email: "forged@example.test",
+    });
+    expect(
+      (
+        await state.sql`select course_id,semester from private.institution_students where id=${student.id}`
+      )[0],
+    ).toEqual({ course_id: course.id, semester: 9 });
+    expect(
+      (
+        await state.sql`select course_id,semester,bio,username from public.profiles where id=${pid(1)}`
+      )[0],
+    ).toEqual({
+      course_id: course.id,
+      semester: 9,
+      bio: "Bio reservada",
+      username: "mvp_1",
+    });
+    expect(
+      (
+        await state.sql`select id,ra,email,cpf_fingerprint,phone,birth_date::text,status,auth_user_id from private.institution_students where id=${student.id}`
+      )[0],
+    ).toEqual(student);
+    expect(
+      (await state.sql`select * from auth.users where id=${uid(1)}`)[0],
+    ).toEqual(auth);
+    expect(
+      (
+        await state.sql`select status from public.profile_certificates where id=${certificate}`
+      )[0].status,
+    ).toBe("verified");
+    expect(
+      (
+        await state.sql`select certificate_id from public.listings where id=${listing}`
+      )[0].certificate_id,
+    ).toBe(certificate);
+    await state.sql`update private.institution_students set course='Curso legado preservado' where id=${student.id}`;
+    await state.sql`update public.profiles set course='Curso legado preservado' where id=${pid(1)}`;
+    await expect(
+      updateStudentAcademics(uid(4), {
+        id: student.id,
+        course_id: "",
+        semester: "",
+      }),
+    ).rejects.toThrow("manter o vínculo");
+    await updateStudentAcademics(uid(4), {
+      id: student.id,
+      course_id: course.id,
+      semester: "",
+    });
+    expect(
+      (
+        await state.sql`select course_id,semester from public.profiles where id=${pid(1)}`
+      )[0],
+    ).toEqual({ course_id: course.id, semester: null });
+    expect(
+      (
+        await state.sql`select course from private.institution_students where id=${student.id}`
+      )[0].course,
+    ).toBe("Curso legado preservado");
+    expect(
+      (
+        await state.sql`select course from public.profiles where id=${pid(1)}`
+      )[0].course,
+    ).toBe("Curso legado preservado");
+  });
+  it("rejects students, missing targets, invalid semester and inactive courses", async () => {
+    const [student] =
+      await state.sql`select id from private.institution_students where auth_user_id=${uid(1)}`;
+    const id = randomUUID();
+    await state.sql`insert into public.courses(id,institution_id,name,status) values (${id},'fatece','Curso inativo de teste','inactive')`;
+    try {
+      await expect(
+        updateStudentAcademics(uid(1), {
+          id: student.id,
+          course_id: null,
+          semester: 8,
+        }),
+      ).rejects.toThrow("revogado");
+      await expect(
+        updateStudentAcademics(uid(4), {
+          id: randomUUID(),
+          course_id: null,
+          semester: 8,
+        }),
+      ).rejects.toThrow("indisponível");
+      await expect(
+        updateStudentAcademics(uid(4), {
+          id: student.id,
+          course_id: id,
+          semester: 8,
+        }),
+      ).rejects.toThrow("indisponível");
+      for (const semester of [0, 31, "forged", 1.5])
+        await expect(
+          updateStudentAcademics(uid(4), {
+            id: student.id,
+            course_id: null,
+            semester,
+          }),
+        ).rejects.toThrow();
+    } finally {
+      await state.sql`delete from public.courses where id=${id}`;
+    }
   });
 });

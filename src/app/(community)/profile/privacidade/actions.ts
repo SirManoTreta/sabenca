@@ -1,4 +1,6 @@
 "use server";
+import { saveMarketplaceContact } from "@/services/marketplace-contact";
+import { marketplaceContactSchema } from "@/lib/validations/marketplace-contact";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/services/session";
@@ -58,4 +60,23 @@ export async function changePrivacy(
   }
   revalidatePath("/", "layout");
   return { success: "Privacidade salva." };
+}
+export async function changeMarketplaceContact(
+  _: ProfileActionState,
+  form: FormData,
+): Promise<ProfileActionState> {
+  const { user } = await requireUser();
+  const input = marketplaceContactSchema.safeParse({
+    url: form.get("url"),
+    enabled: form.get("enabled") === "on",
+  });
+  if (!input.success) return { error: input.error.issues[0].message };
+  try {
+    await saveMarketplaceContact(user.id, input.data);
+  } catch {
+    return { error: "Não foi possível salvar o contato." };
+  }
+  revalidatePath("/profile/privacidade");
+  revalidatePath("/marketplace", "layout");
+  return { success: "Contato salvo." };
 }

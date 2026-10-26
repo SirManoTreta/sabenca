@@ -51,6 +51,7 @@ export async function listingCategories(actor: string) {
 const listingColumns = (
   sql: TransactionSql,
 ) => sql`l.id,l.title,l.description,l.price::text,l.condition,l.status,l.created_at,
+ private.listing_credential(l.id) as credential,
  jsonb_build_object('id',c.id,'name',c.name,'is_service',c.is_service) as category,
  jsonb_build_object('id',p.id,'username',p.username,'name',p.name,'course',course.name,'semester',private.visible_semester(p.id),'institution',p.institution,'avatar_url',p.avatar_url) as seller,
  coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'position',i.position,'image_url',i.image_url) order by i.position,i.id) from public.listing_images i where i.listing_id=l.id),'[]'::jsonb) as images`;
@@ -161,7 +162,7 @@ export async function getListing(id: string, own = false) {
   const row = await withMember(user.id, async (sql, profileId) => {
     const [r] = await sql<
       RawListing[]
-    >`select ${listingColumns(sql)} from public.listings l join public.profiles p on p.id=l.seller_id join public.categories c on c.id=l.category_id left join public.courses course on course.id=p.course_id where l.id=${id} ${own ? sql`and l.seller_id=${profileId}` : sql``}`;
+    >`select ${listingColumns(sql)},private.marketplace_contact(p.id) as contact_url from public.listings l join public.profiles p on p.id=l.seller_id join public.categories c on c.id=l.category_id left join public.courses course on course.id=p.course_id where l.id=${id} ${own ? sql`and l.seller_id=${profileId}` : sql``}`;
     return r ?? null;
   });
   return row ? (await signedListings([row]))[0] : null;
@@ -188,14 +189,28 @@ export async function saveListingData(
     let values;
     try {
       values = conditionForCategory(parsed, category.is_service);
-    } catch {
-      throw new MarketplaceError("Escolha a condição do produto.");
+    } catch (error) {
+      throw new MarketplaceError(
+        error instanceof Error ? error.message : "Revise o anúncio.",
+      );
+    }
+    if (values.certificate_id) {
+      const [eligible] =
+        await sql`select id from public.profile_certificates c where id=${values.certificate_id}
+        and user_id=${actor} and status='verified'
+        and issue_date<=(now() at time zone 'America/Sao_Paulo')::date
+        and (expiration_date is null or expiration_date>=(now() at time zone 'America/Sao_Paulo')::date)
+        and (private.valid_https_url(verification_url) or exists(select 1 from storage.objects where bucket_id='certificates' and name=c.file_path)) for share of c`;
+      if (!eligible)
+        throw new MarketplaceError(
+          "Credencial indisponível. Selecione um certificado seu, verificado e válido, ou nenhuma credencial.",
+        );
     }
     const listingId = id ?? crypto.randomUUID();
     if (id)
-      await sql`update public.listings set title=${values.title},description=${values.description},price=${values.price}::numeric,category_id=${values.category_id},condition=${values.condition} where id=${id} and seller_id=${profileId}`;
+      await sql`update public.listings set title=${values.title},description=${values.description},price=${values.price}::numeric,category_id=${values.category_id},condition=${values.condition},certificate_id=${values.certificate_id ?? null} where id=${id} and seller_id=${profileId}`;
     else
-      await sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition,status) values (${listingId},${profileId},${values.title},${values.description},${values.price}::numeric,${values.category_id},${values.condition},'inactive')`;
+      await sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition,certificate_id,status) values (${listingId},${profileId},${values.title},${values.description},${values.price}::numeric,${values.category_id},${values.condition},${values.certificate_id ?? null},'inactive')`;
     return listingId;
   });
 }
