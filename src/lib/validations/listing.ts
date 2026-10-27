@@ -1,6 +1,7 @@
 import { z } from "zod";
 export const LISTING_PAGE_SIZE = 12;
 export const MAX_LISTING_IMAGES = 5;
+export const MAX_LISTING_CREDENTIALS = 3;
 export const conditionLabels = {
   new: "Novo",
   like_new: "Como novo",
@@ -59,10 +60,14 @@ export const listingSchema = z.object({
   price: priceSchema,
   category_id: z.uuid("Escolha uma categoria válida."),
   condition: conditionSchema,
-  certificate_id: z.preprocess(
-    (v) => (v === "" || v === null ? undefined : v),
-    z.uuid("Escolha uma credencial válida.").optional(),
-  ),
+  certificate_ids: z
+    .array(z.uuid("Escolha uma credencial válida."))
+    .max(MAX_LISTING_CREDENTIALS, "Selecione até 3 credenciais.")
+    .refine(
+      (ids) => new Set(ids).size === ids.length,
+      "Não repita credenciais.",
+    )
+    .default([]),
 });
 const optionalId = z.preprocess(
   (v) => (v === "" ? undefined : v),
@@ -106,7 +111,7 @@ export function conditionForCategory(
   service: boolean,
 ): ListingInput {
   if (service) return { ...input, condition: "not_applicable" };
-  if (input.certificate_id)
+  if (input.certificate_ids.length)
     throw new Error("Somente serviços podem receber credenciais.");
   if (input.condition === "not_applicable")
     throw new Error("Escolha a condição do produto.");

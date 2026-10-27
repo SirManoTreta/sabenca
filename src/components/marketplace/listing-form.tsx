@@ -15,7 +15,11 @@ import {
   MAX_IMAGE_BYTES,
   IMAGE_SIZE_ERROR,
 } from "@/lib/validations/image";
-import { MAX_LISTING_IMAGES, conditionLabels } from "@/lib/validations/listing";
+import {
+  MAX_LISTING_IMAGES,
+  MAX_LISTING_CREDENTIALS,
+  conditionLabels,
+} from "@/lib/validations/listing";
 import type {
   Listing,
   Category,
@@ -36,6 +40,12 @@ export function ListingForm({
     listing?.category.id ?? categories[0]?.id ?? "",
   );
   const [condition, setCondition] = useState(listing?.condition ?? "used");
+  const [selectedCredentials, setSelectedCredentials] = useState<string[]>(
+    () =>
+      listing?.credentials
+        .filter((c) => certificates.some((available) => available.id === c.id))
+        .map((c) => c.id) ?? [],
+  );
   const service = categories.find((c) => c.id === category)?.is_service;
   const [state, action, pending] = useActionState<MarketplaceState, FormData>(
     async (_previous, form) => {
@@ -146,6 +156,10 @@ export function ListingForm({
               onChange={(e) => {
                 setCategory(e.target.value);
                 setCondition("used");
+                if (
+                  !categories.find((c) => c.id === e.target.value)?.is_service
+                )
+                  setSelectedCredentials([]);
               }}
               required
               className={fieldClass}
@@ -189,40 +203,83 @@ export function ListingForm({
           </div>
         )}
         {service && (
-          <div>
-            <label
-              htmlFor="certificate_id"
-              className="mb-2 block font-semibold"
-            >
-              Credencial relacionada ao serviço
-            </label>
-            <select
-              id="certificate_id"
-              name="certificate_id"
-              className={fieldClass}
-              defaultValue={listing?.credential?.id ?? ""}
-              aria-describedby="certificate-help certificate-error"
-            >
-              <option value="">Nenhuma credencial</option>
-              {certificates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title} — {c.issuer}
-                </option>
-              ))}
-            </select>
+          <fieldset
+            aria-describedby="certificate-help certificate-error"
+            className="space-y-3"
+          >
+            <legend className="mb-2 font-semibold">
+              Credenciais relacionadas ao serviço
+            </legend>
+            <p id="certificate-help" className="text-sm text-muted-foreground">
+              Selecione até 3 credenciais verificadas que tenham relação com o
+              serviço oferecido. A ordem de seleção será usada na apresentação.
+            </p>
+            {certificates.length ? (
+              <div className="space-y-2">
+                {certificates.map((c) => {
+                  const position = selectedCredentials.indexOf(c.id);
+                  const selected = position !== -1;
+                  return (
+                    <label
+                      key={c.id}
+                      className="flex items-start gap-3 rounded-xl border border-border p-3 text-sm has-disabled:opacity-60"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={
+                          !selected &&
+                          selectedCredentials.length >= MAX_LISTING_CREDENTIALS
+                        }
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setSelectedCredentials((previous) =>
+                            checked
+                              ? previous.length < MAX_LISTING_CREDENTIALS
+                                ? [...previous, c.id]
+                                : previous
+                              : previous.filter((id) => id !== c.id),
+                          );
+                        }}
+                        className="mt-1"
+                      />
+                      <span className="min-w-0 flex-1 break-words">
+                        {c.title} — {c.issuer}
+                      </span>
+                      {selected && (
+                        <span
+                          aria-hidden="true"
+                          className="font-semibold text-primary"
+                        >
+                          {position + 1}º
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Você ainda não possui credenciais verificadas e válidas para
+                associar. É possível publicar sem credenciais.
+              </p>
+            )}
+            {selectedCredentials.map((id) => (
+              <input key={id} type="hidden" name="certificate_ids" value={id} />
+            ))}
             <p
-              id="certificate-help"
-              className="mt-2 text-sm text-muted-foreground"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-sm font-medium"
             >
-              Você pode associar uma credencial validada pelo SABENÇA a este
-              serviço. Apenas certificados verificados e atualmente válidos
-              aparecem aqui.
+              {selectedCredentials.length} de {MAX_LISTING_CREDENTIALS}{" "}
+              selecionadas
             </p>
             <FieldError
               id="certificate-error"
-              errors={state.fields?.certificate_id}
+              errors={state.fields?.certificate_ids}
             />
-          </div>
+          </fieldset>
         )}
         {!listing && (
           <div>

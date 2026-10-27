@@ -11,10 +11,8 @@ export async function eligibleCertificates(actor: string) {
     ...(await sql<
       ListingCredential[]
     >`select id,title,issuer,issue_date::text,expiration_date::text
-      from public.profile_certificates c where user_id=${actor} and status='verified'
-      and issue_date<=(now() at time zone 'America/Sao_Paulo')::date
-      and (expiration_date is null or expiration_date>=(now() at time zone 'America/Sao_Paulo')::date)
-      and (private.valid_https_url(verification_url) or exists(select 1 from storage.objects where bucket_id='certificates' and name=c.file_path))
+      from public.profile_certificates c where user_id=${actor}
+      and private.own_listing_certificate_eligible(c.id)
       order by title,id`),
   ]);
 }

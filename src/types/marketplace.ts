@@ -29,7 +29,7 @@ export type Listing = {
   category: Category;
   seller: ListingSeller;
   images: ListingImage[];
-  credential?: ListingCredential | null;
+  credentials: ListingCredential[];
   contact_url?: string | null;
 };
 export type MarketplaceParams = Record<string, string | string[] | undefined>;

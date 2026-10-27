@@ -57,6 +57,7 @@ it("derives seller from authenticated identity, strips forged fields and revalid
       price: "45.50",
       category_id: id,
       condition: "used",
+      certificate_ids: [],
     },
     undefined,
   );
@@ -66,6 +67,53 @@ it("derives seller from authenticated identity, strips forged fields and revalid
     ["/users/[username]", "page"],
   ]);
 });
+it("collects the complete credential selection in submitted order and ignores legacy or forged ownership fields", async () => {
+  const form = listing();
+  form.set("condition", "not_applicable");
+  const ids = [
+    "70000000-0000-4000-8000-000000000003",
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000002",
+  ];
+  for (const certificate of ids) form.append("certificate_ids", certificate);
+  form.set("certificate_id", "70000000-0000-4000-8000-000000000099");
+  expect((await saveListing({}, form)).id).toBe(id);
+  expect(mocks.save).toHaveBeenCalledExactlyOnceWith(
+    id,
+    {
+      title: "Livro de cálculo",
+      description: "Livro em bom estado.",
+      price: "45.50",
+      category_id: id,
+      condition: "not_applicable",
+      certificate_ids: ids,
+    },
+    undefined,
+  );
+});
+it.each([
+  [
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000002",
+    "70000000-0000-4000-8000-000000000003",
+    "70000000-0000-4000-8000-000000000004",
+  ],
+  [
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000001",
+  ],
+  ["forged"],
+])(
+  "rejects an invalid multi-credential form before persistence: %j",
+  async (...ids) => {
+    const form = listing();
+    for (const certificate of ids) form.append("certificate_ids", certificate);
+    const result = await saveListing({}, form);
+    expect(result.error).toBeTruthy();
+    expect(result.fields?.certificate_ids?.length).toBeGreaterThan(0);
+    expect(mocks.save).not.toHaveBeenCalled();
+  },
+);
 it("validates all public action entry points before writes", async () => {
   for (const action of [
     saveListing,

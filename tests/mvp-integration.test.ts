@@ -59,7 +59,7 @@ const cert = {
   credential_id: "ABC123",
   verification_url: "https://example.test/validar",
 };
-async function serviceInput(certificate_id?: string) {
+async function serviceInput(certificates: string | string[] = []) {
   const [category] =
     await state.sql`select id from public.categories where is_service limit 1`;
   return {
@@ -68,7 +68,8 @@ async function serviceInput(certificate_id?: string) {
     price: "50,00",
     category_id: category.id,
     condition: "not_applicable",
-    ...(certificate_id ? { certificate_id } : {}),
+    certificate_ids:
+      typeof certificates === "string" ? [certificates] : certificates,
   };
 }
 async function approvedCertificate(owner = uid(1), values = cert) {
@@ -84,6 +85,20 @@ async function visibleCredential(id: string, viewer = uid(2)) {
       `select public.listing_credential('${id}') as credential`,
     )
   )[0].credential;
+}
+async function visibleCredentials(id: string, viewer = uid(2)) {
+  return (
+    await asUser(
+      viewer,
+      `select public.listing_credentials('${id}') as credentials`,
+    )
+  )[0].credentials as {
+    id: string;
+    title: string;
+    issuer: string;
+    issue_date: string;
+    expiration_date: string | null;
+  }[];
 }
 async function asUser(actor: string, query: string) {
   return state.sql.begin(async (sql) => {
@@ -635,7 +650,9 @@ describe("service credentials, consent and effective moderation", () => {
     expect(await visibleCredential(plain)).toBeNull();
     const listings = (await searchListings(uid(2), {})).listings;
     expect(listings).toHaveLength(2);
-    expect(listings.find((l) => l.id === id)?.credential).toEqual(credential);
+    expect(listings.find((l) => l.id === id)?.credentials).toEqual([
+      credential,
+    ]);
     for (const key of [
       "file_path",
       "verified_by",
@@ -675,6 +692,11 @@ describe("service credentials, consent and effective moderation", () => {
     const service = await serviceInput();
     const own = await approvedCertificate();
     const id = await saveListingData(uid(1), service);
+    const product = await saveListingData(uid(1), {
+      ...service,
+      category_id: category,
+      condition: "used",
+    });
     for (const certificate of [
       foreign,
       pending,
@@ -683,18 +705,18 @@ describe("service credentials, consent and effective moderation", () => {
       randomUUID(),
     ]) {
       await expect(
-        saveListingData(uid(1), { ...service, certificate_id: certificate }),
+        saveListingData(uid(1), { ...service, certificate_ids: [certificate] }),
       ).rejects.toThrow("Credencial indisponível");
       await expect(
         asUser(
           uid(1),
-          `update public.listings set certificate_id='${certificate}' where id='${id}'`,
+          `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificate}',0)`,
         ),
       ).rejects.toThrow("credential unavailable");
       await expect(
         asUser(
           uid(1),
-          `insert into public.listings(seller_id,title,description,price,category_id,condition,certificate_id) values ('${pid(1)}','Serviço direto','Teste',10,'${service.category_id}','not_applicable','${certificate}')`,
+          `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificate}',1)`,
         ),
       ).rejects.toThrow("credential unavailable");
     }
@@ -703,19 +725,19 @@ describe("service credentials, consent and effective moderation", () => {
         ...service,
         category_id: category,
         condition: "used",
-        certificate_id: own,
+        certificate_ids: [own],
       }),
     ).rejects.toThrow("Somente serviços");
     await expect(
       asUser(
         uid(1),
-        `update public.listings set category_id='${category}',condition='used',certificate_id='${own}' where id='${id}'`,
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${product}','${own}',0)`,
       ),
     ).rejects.toThrow("Only services");
     await expect(
       asUser(
         uid(2),
-        `insert into public.listings(seller_id,title,description,price,category_id,condition,certificate_id) values ('${pid(1)}','Serviço forjado','Teste',10,'${service.category_id}','not_applicable','${own}')`,
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${own}',0)`,
       ),
     ).rejects.toThrow("credential unavailable");
     expect((await eligibleCertificates(uid(1))).map((c) => c.id)).toEqual([
@@ -767,10 +789,8 @@ describe("service credentials, consent and effective moderation", () => {
     ).toHaveLength(1);
     await deleteCertificate(uid(1), certificate, async () => {});
     expect(
-      (
-        await state.sql`select certificate_id from public.listings where id=${id}`
-      )[0].certificate_id,
-    ).toBeNull();
+      await state.sql`select certificate_id from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(0);
     expect((await searchListings(uid(2), {})).total).toBe(1);
     expect(await visibleCredential(id)).toBeNull();
   });
@@ -947,6 +967,336 @@ describe("service credentials, consent and effective moderation", () => {
   });
 });
 
+describe("multiple service credentials", () => {
+  it.each([0, 1, 2, 3])(
+    "stores %i selected credentials in their chosen order",
+    async (count) => {
+      const available = await Promise.all(
+        ["Linux", "Redes", "Docker", "Python"].map((title) =>
+          approvedCertificate(uid(1), { ...cert, title }),
+        ),
+      );
+      const selected = [available[2], available[0], available[1]].slice(
+        0,
+        count,
+      );
+      const id = await saveListingData(uid(1), await serviceInput(selected));
+      await changeListingStatus(uid(1), id, "active");
+      expect((await visibleCredentials(id)).map((c) => c.id)).toEqual(selected);
+      expect(
+        await state.sql`select certificate_id,position from public.listing_certificates where listing_id=${id} order by position`,
+      ).toEqual(
+        selected.map((certificate_id, position) => ({
+          certificate_id,
+          position,
+        })),
+      );
+      expect(
+        (await searchListings(uid(2), {})).listings[0].credentials.map(
+          (c) => c.id,
+        ),
+      ).toEqual(selected);
+      expect(
+        (
+          await state.sql`select certificate_id from public.listings where id=${id}`
+        )[0].certificate_id,
+      ).toBeNull();
+      // The profile remains an unrestricted catalog, not an announcement-specific selection.
+      expect(
+        await asUser(
+          uid(2),
+          `select * from public.visible_certificates('${pid(1)}')`,
+        ),
+      ).toHaveLength(4);
+    },
+  );
+
+  it("rejects a fourth credential and duplicates in backend and raw SQL", async () => {
+    const certificates = [];
+    for (let i = 0; i < 4; i++)
+      certificates.push(
+        await approvedCertificate(uid(1), {
+          ...cert,
+          title: `Credencial ${i}`,
+        }),
+      );
+    const id = await saveListingData(
+      uid(1),
+      await serviceInput(certificates.slice(0, 3)),
+    );
+    await expect(
+      saveListingData(uid(1), await serviceInput(certificates)),
+    ).rejects.toThrow();
+    await expect(
+      saveListingData(
+        uid(1),
+        await serviceInput([certificates[0], certificates[0]]),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      asUser(
+        uid(1),
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificates[3]}',3)`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    // A racing request cannot use an existing slot to bypass the three-position limit.
+    await expect(
+      asUser(
+        uid(1),
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificates[3]}',2)`,
+      ),
+    ).rejects.toMatchObject({ code: "23505" });
+    await expect(
+      asUser(
+        uid(1),
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificates[0]}',1)`,
+      ),
+    ).rejects.toMatchObject({ code: "23505" });
+    expect(
+      await state.sql`select certificate_id from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(3);
+  });
+
+  it("keeps listing fields and all previous associations atomic when a submitted credential is invalid", async () => {
+    const valid = await approvedCertificate();
+    const foreign = await approvedCertificate(uid(2));
+    const input = await serviceInput(valid);
+    const id = await saveListingData(uid(1), input);
+    await changeListingStatus(uid(1), id, "active");
+    const before =
+      await state.sql`select title,description,price,category_id,condition from public.listings where id=${id}`;
+    await expect(
+      saveListingData(
+        uid(1),
+        {
+          ...input,
+          title: "Título que não deve persistir",
+          certificate_ids: [valid, foreign],
+        },
+        id,
+      ),
+    ).rejects.toThrow();
+    expect(
+      await state.sql`select title,description,price,category_id,condition from public.listings where id=${id}`,
+    ).toEqual(before);
+    expect(
+      await state.sql`select certificate_id,position from public.listing_certificates where listing_id=${id}`,
+    ).toEqual([{ certificate_id: valid, position: 0 }]);
+    // Neither the service nor the Data API caller can modify a peer's listing.
+    await expect(
+      saveListingData(
+        uid(2),
+        { ...input, title: "Título forjado", certificate_ids: [foreign] },
+        id,
+      ),
+    ).rejects.toThrow("permissão");
+    await expect(
+      asUser(
+        uid(2),
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${foreign}',1)`,
+      ),
+    ).rejects.toMatchObject({ code: "42501" });
+    expect(
+      await asUser(
+        uid(2),
+        `delete from public.listing_certificates where listing_id='${id}' returning certificate_id`,
+      ),
+    ).toHaveLength(0);
+    expect(
+      await asUser(
+        uid(2),
+        `update public.listing_certificates set position=1 where listing_id='${id}' returning certificate_id`,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("rejects future dates and lost file evidence for every selected credential", async () => {
+    // Legacy/imported administrative data can contain future metadata even
+    // though the current certificate form rejects it before reaching SQL.
+    const future = randomUUID();
+    await state.sql`insert into public.profile_certificates(id,user_id,title,issuer,issue_date,verification_url,status) values (${future},${uid(1)},'Documento futuro','Instituição de teste','2099-01-01','https://example.test/future','verified')`;
+    const withoutEvidence = randomUUID(),
+      file = `${uid(1)}/${withoutEvidence}/${randomUUID()}.pdf`;
+    await saveCertificate(
+      uid(1),
+      withoutEvidence,
+      { ...cert, verification_url: "" },
+      file,
+    );
+    await state.sql`insert into storage.objects(bucket_id,name) values ('certificates',${file})`;
+    await reviewCertificate(uid(4), withoutEvidence, "verified", "");
+    await state.sql`delete from storage.objects where name=${file}`;
+    const id = await saveListingData(uid(1), await serviceInput());
+    for (const certificate of [future, withoutEvidence]) {
+      await expect(
+        saveListingData(uid(1), await serviceInput(certificate), id),
+      ).rejects.toThrow("Credencial indisponível");
+      await expect(
+        asUser(
+          uid(1),
+          `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificate}',0)`,
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+    }
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(0);
+  });
+
+  it("accepts a certificate through its inclusive expiration day", async () => {
+    const [clock] =
+      await state.sql`select (now() at time zone 'America/Sao_Paulo')::date::text as today`;
+    const certificate = await approvedCertificate(uid(1), {
+      ...cert,
+      expiration_date: clock.today,
+    });
+    const id = await saveListingData(uid(1), await serviceInput(certificate));
+    await changeListingStatus(uid(1), id, "active");
+    expect((await visibleCredentials(id)).map((c) => c.id)).toEqual([
+      certificate,
+    ]);
+  });
+
+  it("removes associations on service-to-product changes and can select again after switching back", async () => {
+    const certificates = [
+      await approvedCertificate(),
+      await approvedCertificate(),
+    ];
+    const service = await serviceInput(certificates);
+    const id = await saveListingData(uid(1), service);
+    await changeListingStatus(uid(1), id, "active");
+    await saveListingData(
+      uid(1),
+      {
+        ...service,
+        category_id: category,
+        condition: "used",
+        certificate_ids: [],
+      },
+      id,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(0);
+    expect(await visibleCredentials(id)).toEqual([]);
+    await expect(
+      asUser(
+        uid(1),
+        `insert into public.listing_certificates(listing_id,certificate_id,position) values ('${id}','${certificates[0]}',0)`,
+      ),
+    ).rejects.toThrow("Only services");
+    await saveListingData(uid(1), service, id);
+    await asUser(
+      uid(1),
+      `update public.listings set category_id='${category}',condition='used' where id='${id}'`,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(0);
+    await saveListingData(uid(1), service, id);
+    expect((await visibleCredentials(id)).map((c) => c.id)).toEqual(
+      certificates,
+    );
+  });
+
+  it("filters one invalidated or expired credential without changing the other two or deleting history", async () => {
+    const certificates = [];
+    for (const title of ["Linux", "Redes", "Docker"])
+      certificates.push(await approvedCertificate(uid(1), { ...cert, title }));
+    const id = await saveListingData(uid(1), await serviceInput(certificates));
+    await changeListingStatus(uid(1), id, "active");
+    const [a, b, c] = certificates;
+    await saveCertificate(
+      uid(1),
+      b,
+      { ...cert, title: "Redes revisado" },
+      undefined,
+    );
+    expect((await visibleCredentials(id)).map((v) => v.id)).toEqual([a, c]);
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(3);
+    await reviewCertificate(uid(4), b, "verified", "");
+    expect((await visibleCredentials(id)).map((v) => v.id)).toEqual(
+      certificates,
+    );
+    await saveCertificate(
+      uid(1),
+      b,
+      { ...cert, title: "Redes", expiration_date: "2026-01-02" },
+      undefined,
+    );
+    await reviewCertificate(uid(4), b, "verified", "");
+    expect((await visibleCredentials(id)).map((v) => v.id)).toEqual([a, c]);
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toHaveLength(3);
+    for (const value of await visibleCredentials(id))
+      expect(Object.keys(value).sort()).toEqual(
+        ["id", "title", "issuer", "issue_date", "expiration_date"].sort(),
+      );
+    expect(await visibleCredential(id)).toMatchObject({ id: a });
+    expect(
+      (await searchListings(uid(2), {})).listings[0].credentials.map(
+        (v) => v.id,
+      ),
+    ).toEqual([a, c]);
+  });
+
+  it("applies listing privacy and ownership to the ordered RPC and direct relation reads", async () => {
+    const certificates = [
+      await approvedCertificate(),
+      await approvedCertificate(),
+    ];
+    const id = await saveListingData(uid(1), await serviceInput(certificates));
+    expect(await visibleCredentials(id)).toEqual([]);
+    expect(
+      await asUser(
+        uid(2),
+        `select * from public.listing_certificates where listing_id='${id}'`,
+      ),
+    ).toHaveLength(0);
+    await changeListingStatus(uid(1), id, "active");
+    expect(await visibleCredentials(id)).toHaveLength(2);
+    expect(
+      await asUser(
+        uid(2),
+        `select * from public.listing_certificates where listing_id='${id}'`,
+      ),
+    ).toHaveLength(2);
+    expect(await visibleCredentials(id, uid(4))).toEqual([]);
+    await savePrivacy(
+      uid(1),
+      Object.fromEntries(privacyKeys.map((k) => [k, k !== "show_listings"])),
+    );
+    expect(await visibleCredentials(id)).toEqual([]);
+    expect(
+      await asUser(
+        uid(2),
+        `select * from public.listing_certificates where listing_id='${id}'`,
+      ),
+    ).toHaveLength(0);
+    await savePrivacy(
+      uid(1),
+      Object.fromEntries(privacyKeys.map((k) => [k, true])),
+    );
+    await blockProfile(uid(2), pid(1), true);
+    expect(await visibleCredentials(id)).toEqual([]);
+    expect(
+      await asUser(
+        uid(2),
+        `select * from public.listing_certificates where listing_id='${id}'`,
+      ),
+    ).toHaveLength(0);
+    await expect(
+      asUser(
+        uid(1),
+        `update public.listings set certificate_id='${certificates[0]}' where id='${id}'`,
+      ),
+    ).rejects.toThrow("Legacy listing credential is read-only");
+  });
+});
+
 describe("controlled academic updates", () => {
   it("updates course and semester through the existing sync without changing identity, social data or content", async () => {
     await state.sql`insert into public.courses(institution_id,name,status) values ('fatece','Curso para atualização acadêmica','active') on conflict do nothing`;
@@ -998,7 +1348,7 @@ describe("controlled academic updates", () => {
     ).toBe("verified");
     expect(
       (
-        await state.sql`select certificate_id from public.listings where id=${listing}`
+        await state.sql`select certificate_id from public.listing_certificates where listing_id=${listing}`
       )[0].certificate_id,
     ).toBe(certificate);
     await state.sql`update private.institution_students set course='Curso legado preservado' where id=${student.id}`;

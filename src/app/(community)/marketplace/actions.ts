@@ -30,18 +30,15 @@ export async function saveListing(
   form: FormData,
 ): Promise<MarketplaceState> {
   const { user } = await requireUser();
-  const input = listingSchema.safeParse(
-    Object.fromEntries(
-      [
-        "title",
-        "description",
-        "price",
-        "category_id",
-        "condition",
-        "certificate_id",
-      ].map((k) => [k, form.get(k)]),
+  const input = listingSchema.safeParse({
+    ...Object.fromEntries(
+      ["title", "description", "price", "category_id", "condition"].map((k) => [
+        k,
+        form.get(k),
+      ]),
     ),
-  );
+    certificate_ids: form.getAll("certificate_ids"),
+  });
   if (!input.success)
     return {
       error: "Revise os campos indicados.",

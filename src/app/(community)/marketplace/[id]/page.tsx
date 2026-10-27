@@ -116,21 +116,31 @@ export default async function ListingPage({
               </p>
             </div>
           </div>
-          {listing.credential && (
+          {listing.credentials.length > 0 && (
             <div className="space-y-2 rounded-xl border border-border bg-white p-4">
               <p className="font-semibold text-primary">
-                Credencial verificada pelo SABENÇA
+                {listing.credentials.length === 1
+                  ? "Credencial verificada pelo SABENÇA"
+                  : "Credenciais verificadas pelo SABENÇA"}
               </p>
-              <h3 className="break-words font-bold">
-                {listing.credential.title}
-              </h3>
-              <p className="break-words text-sm">{listing.credential.issuer}</p>
-              <p className="text-sm">
-                Emitido em:{" "}
-                {listing.credential.issue_date.split("-").reverse().join("/")}
-              </p>
+              <ul className="space-y-3">
+                {listing.credentials.map((credential) => (
+                  <li key={credential.id} className="space-y-1">
+                    <h3 className="break-words font-bold">
+                      {credential.title}
+                    </h3>
+                    <p className="break-words text-sm">{credential.issuer}</p>
+                    <p className="text-sm">
+                      Emitido em:{" "}
+                      {credential.issue_date.split("-").reverse().join("/")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
               <p className="text-sm text-muted-foreground">
-                Documento analisado e validado pela plataforma.
+                {listing.credentials.length === 1
+                  ? "Documento analisado e validado pela plataforma."
+                  : "Documentos analisados e validados pela plataforma."}
               </p>
             </div>
           )}
