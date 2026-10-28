@@ -58,6 +58,7 @@ it("derives seller from authenticated identity, strips forged fields and revalid
       category_id: id,
       condition: "used",
       certificate_ids: [],
+      preserve_credentials: false,
     },
     undefined,
   );
@@ -87,9 +88,58 @@ it("collects the complete credential selection in submitted order and ignores le
       category_id: id,
       condition: "not_applicable",
       certificate_ids: ids,
+      preserve_credentials: false,
     },
     undefined,
   );
+});
+it.each(["preserve", "replace"])(
+  "derives edit intent %s on the server and ignores a forged preservation flag",
+  async (intent) => {
+    const form = listing();
+    form.set("id", id);
+    form.set("condition", "not_applicable");
+    form.set("credential_intent", intent);
+    form.set("preserve_credentials", intent === "preserve" ? "false" : "true");
+    form.append("certificate_ids", "70000000-0000-4000-8000-000000000003");
+    expect((await saveListing({}, form)).success).toBe("Anúncio salvo.");
+    expect(mocks.save).toHaveBeenCalledExactlyOnceWith(
+      id,
+      expect.objectContaining({
+        certificate_ids: ["70000000-0000-4000-8000-000000000003"],
+        preserve_credentials: intent === "preserve",
+      }),
+      id,
+    );
+  },
+);
+it.each([undefined, "", "false", "invalid"])(
+  "rejects an old edit form with missing or invalid intent %s before any partial write",
+  async (intent) => {
+    const form = listing();
+    form.set("id", id);
+    form.set("preserve_credentials", "false");
+    if (intent !== undefined) form.set("credential_intent", intent);
+    expect(await saveListing({}, form)).toEqual({
+      error: "Reabra o formulário para confirmar a seleção de credenciais.",
+    });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  },
+);
+it("rejects ambiguous duplicate intent fields and preserve intent on creation", async () => {
+  const edit = listing();
+  edit.set("id", id);
+  edit.append("credential_intent", "preserve");
+  edit.append("credential_intent", "replace");
+  const create = listing();
+  create.set("credential_intent", "preserve");
+  for (const form of [edit, create])
+    expect((await saveListing({}, form)).error).toBe(
+      "Reabra o formulário para confirmar a seleção de credenciais.",
+    );
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.refresh).not.toHaveBeenCalled();
 });
 it.each([
   [

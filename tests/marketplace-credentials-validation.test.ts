@@ -27,6 +27,7 @@ describe("multiple credential selection", () => {
   );
   it("defaults absent selection to zero and rejects malformed, duplicated or fourth IDs", () => {
     expect(listingSchema.parse(listing).certificate_ids).toEqual([]);
+    expect(listingSchema.parse(listing).preserve_credentials).toBe(false);
     for (const certificate_ids of [
       [certificate(1), certificate(2), certificate(3), certificate(4)],
       [certificate(1), certificate(1)],
@@ -36,6 +37,16 @@ describe("multiple credential selection", () => {
     ])
       expect(
         listingSchema.safeParse({ ...listing, certificate_ids }).success,
+      ).toBe(false);
+  });
+  it("accepts a typed preservation decision and refuses string or coerced flags", () => {
+    expect(
+      listingSchema.parse({ ...listing, preserve_credentials: true })
+        .preserve_credentials,
+    ).toBe(true);
+    for (const preserve_credentials of ["true", "false", 0, 1, null, []])
+      expect(
+        listingSchema.safeParse({ ...listing, preserve_credentials }).success,
       ).toBe(false);
   });
   it("rejects credentials submitted with a product and keeps its existing condition rule", () => {

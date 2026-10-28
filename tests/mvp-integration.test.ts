@@ -1243,6 +1243,150 @@ describe("multiple service credentials", () => {
     ).toEqual([a, c]);
   });
 
+  it("preserves an invalid historical association during a common edit and replaces it only after explicit selection changes", async () => {
+    const certificates = [
+      await approvedCertificate(uid(1), { ...cert, title: "Linux" }),
+      await approvedCertificate(uid(1), { ...cert, title: "Redes" }),
+      await approvedCertificate(uid(1), { ...cert, title: "Docker" }),
+    ];
+    const id = await saveListingData(uid(1), await serviceInput(certificates));
+    await changeListingStatus(uid(1), id, "active");
+    const [invalid, second, third] = certificates;
+    await reviewCertificate(uid(4), invalid, "rejected", "Revisão fictícia");
+    const before =
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`;
+    await saveListingData(
+      uid(1),
+      {
+        ...(await serviceInput([second, third])),
+        title: "Título revisado sem mudar credenciais",
+        price: "91,50",
+        preserve_credentials: true,
+      },
+      id,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual(before);
+    expect(
+      (
+        await state.sql`select title,price::text,certificate_id from public.listings where id=${id}`
+      )[0],
+    ).toEqual({
+      title: "Título revisado sem mudar credenciais",
+      price: "91.50",
+      certificate_id: invalid,
+    });
+    expect((await visibleCredentials(id)).map((c) => c.id)).toEqual([
+      second,
+      third,
+    ]);
+    await saveListingData(uid(1), await serviceInput([third, second]), id);
+    expect(
+      await state.sql`select certificate_id,position from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual([
+      { certificate_id: third, position: 0 },
+      { certificate_id: second, position: 1 },
+    ]);
+    expect(
+      (
+        await state.sql`select certificate_id from public.listings where id=${id}`
+      )[0].certificate_id,
+    ).toBe(third);
+  });
+
+  it("preserves credentials added after a common-edit form loaded and never links its stale or foreign IDs", async () => {
+    const certificates = [
+      await approvedCertificate(),
+      await approvedCertificate(),
+      await approvedCertificate(),
+    ];
+    const staleForm = await serviceInput(certificates[0]);
+    const id = await saveListingData(uid(1), staleForm);
+    await saveListingData(uid(1), await serviceInput(certificates), id);
+    const before =
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`;
+    await saveListingData(
+      uid(1),
+      {
+        ...staleForm,
+        title: "Edição comum atrasada",
+        preserve_credentials: true,
+      },
+      id,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual(before);
+    const foreign = await approvedCertificate(uid(2));
+    await saveListingData(
+      uid(1),
+      { ...staleForm, certificate_ids: [foreign], preserve_credentials: true },
+      id,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual(before);
+    await expect(
+      saveListingData(
+        uid(2),
+        { ...staleForm, title: "Forjado", preserve_credentials: true },
+        id,
+      ),
+    ).rejects.toThrow("sem permissão");
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual(before);
+  });
+
+  it("rejects a stale product form after a newer service conversion and clears links only on an explicit conversion", async () => {
+    const documents = [
+      await approvedCertificate(),
+      await approvedCertificate(),
+    ];
+    const staleProductForm = {
+      ...(await serviceInput()),
+      category_id: category,
+      condition: "used",
+    };
+    const id = await saveListingData(uid(1), staleProductForm);
+    await saveListingData(uid(1), await serviceInput(documents), id);
+    const beforeParent =
+      await state.sql`select * from public.listings where id=${id}`;
+    const beforeLinks =
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`;
+    await expect(
+      saveListingData(
+        uid(1),
+        {
+          ...staleProductForm,
+          title: "Produto atrasado",
+          preserve_credentials: true,
+        },
+        id,
+      ),
+    ).rejects.toThrow("O anúncio mudou. Reabra o formulário antes de salvar.");
+    expect(
+      await state.sql`select * from public.listings where id=${id}`,
+    ).toEqual(beforeParent);
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id} order by position`,
+    ).toEqual(beforeLinks);
+    await saveListingData(
+      uid(1),
+      { ...staleProductForm, preserve_credentials: false },
+      id,
+    );
+    expect(
+      await state.sql`select * from public.listing_certificates where listing_id=${id}`,
+    ).toEqual([]);
+    expect(
+      (
+        await state.sql`select certificate_id from public.listings where id=${id}`
+      )[0].certificate_id,
+    ).toBeNull();
+  });
+
   it("applies listing privacy and ownership to the ordered RPC and direct relation reads", async () => {
     const certificates = [
       await approvedCertificate(),

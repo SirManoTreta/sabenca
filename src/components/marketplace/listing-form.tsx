@@ -40,13 +40,22 @@ export function ListingForm({
     listing?.category.id ?? categories[0]?.id ?? "",
   );
   const [condition, setCondition] = useState(listing?.condition ?? "used");
-  const [selectedCredentials, setSelectedCredentials] = useState<string[]>(
+  const [initialCredentials] = useState<string[]>(
     () =>
       listing?.credentials
         .filter((c) => certificates.some((available) => available.id === c.id))
         .map((c) => c.id) ?? [],
   );
+  const [selectedCredentials, setSelectedCredentials] =
+    useState<string[]>(initialCredentials);
   const service = categories.find((c) => c.id === category)?.is_service;
+  const credentialIntent =
+    listing &&
+    service === listing.category.is_service &&
+    selectedCredentials.length === initialCredentials.length &&
+    selectedCredentials.every((id, index) => id === initialCredentials[index])
+      ? "preserve"
+      : "replace";
   const [state, action, pending] = useActionState<MarketplaceState, FormData>(
     async (_previous, form) => {
       const files = form
@@ -88,6 +97,7 @@ export function ListingForm({
   return (
     <form action={action} className="max-w-3xl space-y-6">
       {listing && <input type="hidden" name="id" value={listing.id} />}
+      <input type="hidden" name="credential_intent" value={credentialIntent} />
       <fieldset
         disabled={pending || (!!state.id && !listing)}
         className="space-y-6 disabled:opacity-60"

@@ -169,9 +169,11 @@ export async function getListing(id: string, own = false) {
 }
 async function ownListing(sql: TransactionSql, id: string, profileId: string) {
   idSchema.parse(id);
-  const [row] =
-    await sql`select id from public.listings where id=${id} and seller_id=${profileId} for update`;
+  const [row] = await sql<
+    { id: string; category_id: string }[]
+  >`select id,category_id from public.listings where id=${id} and seller_id=${profileId} for update`;
   if (!row) throw new MarketplaceError(unavailable);
+  return row;
 }
 export async function saveListingData(
   actor: string,
@@ -180,7 +182,7 @@ export async function saveListingData(
 ) {
   const parsed = listingSchema.parse(input);
   return withMember(actor, async (sql, profileId) => {
-    if (id) await ownListing(sql, id, profileId);
+    const previous = id ? await ownListing(sql, id, profileId) : undefined;
     const [category] = await sql<
       Category[]
     >`select id,name,is_service from public.categories where id=${parsed.category_id}`;
@@ -194,7 +196,21 @@ export async function saveListingData(
         error instanceof Error ? error.message : "Revise o anúncio.",
       );
     }
-    if (values.certificate_ids.length) {
+    const preserveCredentials = !!id && values.preserve_credentials;
+    if (
+      preserveCredentials &&
+      previous &&
+      previous.category_id !== category.id
+    ) {
+      const [current] = await sql<
+        { is_service: boolean }[]
+      >`select is_service from public.categories where id=${previous.category_id}`;
+      if (!current || current.is_service !== category.is_service)
+        throw new MarketplaceError(
+          "O anúncio mudou. Reabra o formulário antes de salvar.",
+        );
+    }
+    if (!preserveCredentials && values.certificate_ids.length) {
       const eligible =
         await sql`select id from public.profile_certificates c where id in ${sql(values.certificate_ids)}
         and user_id=${actor} and private.own_listing_certificate_eligible(c.id) for share of c`;
@@ -208,6 +224,9 @@ export async function saveListingData(
       await sql`update public.listings set title=${values.title},description=${values.description},price=${values.price}::numeric,category_id=${values.category_id},condition=${values.condition} where id=${id} and seller_id=${profileId}`;
     else
       await sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition,status) values (${listingId},${profileId},${values.title},${values.description},${values.price}::numeric,${values.category_id},${values.condition},'inactive')`;
+    // A common edit must retain historical or concurrently added associations.
+    // An explicit category conversion still clears them through the database.
+    if (preserveCredentials) return listingId;
     // The parent lock above serializes edits; metadata and the entire ordered set commit together.
     await sql`delete from public.listing_certificates where listing_id=${listingId}`;
     for (const [position, certificateId] of values.certificate_ids.entries())

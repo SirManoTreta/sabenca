@@ -803,7 +803,7 @@ test("service selects up to three ordered credentials and hides each invalidated
     await f.sql`insert into public.profile_certificates(id,user_id,title,issuer,issue_date,verification_url,status,verified_at,verified_by)
       values (${certificate.id},${f.a.userId},${certificate.title},${certificate.issuer},'2026-01-01',${`https://example.test/${certificate.id}`},'verified',now(),${f.staff.userId})`;
   const [linux, networks, docker, python] = certificates;
-  const listingTitle = `Configuração de servidores Linux ${f.token}`;
+  let listingTitle = `Configuração de servidores Linux ${f.token}`;
   const peerContext = await browser.newContext(),
     peer = await peerContext.newPage();
   const staffContext = await browser.newContext(),
@@ -949,6 +949,60 @@ test("service selects up to three ordered credentials and hides each invalidated
     await saveEdit();
     await expectVisibleCredentials([linux, networks, docker]);
 
+    // An administrative invalidation must remain historical when the owner
+    // edits only common fields; unchanged checkboxes express preserve intent.
+    await login(staff, f.staff, true);
+    await staff.goto("/admin/certificados");
+    const dockerReview = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", { name: docker.title, exact: true }),
+    });
+    await dockerReview
+      .getByLabel("Resultado da análise")
+      .selectOption("rejected");
+    await dockerReview
+      .getByLabel("Motivo da rejeição")
+      .fill("Revisão administrativa fictícia para testar preservação.");
+    await dockerReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(dockerReview.getByText(/Status: rejected/)).toBeVisible();
+    await expectVisibleCredentials([linux, networks]);
+    const preservedLinks =
+      await f.sql`select certificate_id,position,created_at from public.listing_certificates where listing_id=${listingId} order by position`;
+    expect(preservedLinks).toHaveLength(3);
+    await page.goto(`${listingUrl}/editar`);
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
+    const revisedTitle = `${listingTitle} revisado`;
+    await page.getByLabel("Título do anúncio").fill(revisedTitle);
+    await page.getByLabel("Preço (R$)").fill("95,00");
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
+    await saveEdit();
+    listingTitle = revisedTitle;
+    await expectVisibleCredentials([linux, networks]);
+    expect(
+      await f.sql`select certificate_id,position,created_at from public.listing_certificates where listing_id=${listingId} order by position`,
+    ).toEqual(preservedLinks);
+    expect(
+      (
+        await f.sql`select title,price::text from public.listings where id=${listingId}`
+      )[0],
+    ).toEqual({ title: revisedTitle, price: "95.00" });
+    // Restore this synthetic review so the existing owner-invalidation and
+    // explicit checkbox-removal flows below retain their original coverage.
+    await staff.reload();
+    await dockerReview
+      .getByLabel("Resultado da análise")
+      .selectOption("verified");
+    await dockerReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(dockerReview.getByText(/Status: verified/)).toBeVisible();
+    await expectVisibleCredentials([linux, networks, docker]);
+
     // Owner edits invalidate only Docker; its historical association remains.
     await page.goto("/profile/certificados");
     const dockerDocument = page.getByRole("article").filter({
@@ -989,7 +1043,6 @@ test("service selects up to three ordered credentials and hides each invalidated
     await expect(
       networkDocument.getByText("Status: Pendente de análise", { exact: true }),
     ).toBeVisible();
-    await login(staff, f.staff, true);
     await staff.goto("/admin/certificados");
     const review = staff.getByRole("article").filter({
       has: staff.getByRole("heading", { name: networks.title, exact: true }),
@@ -1003,10 +1056,32 @@ test("service selects up to three ordered credentials and hides each invalidated
       await f.sql`select certificate_id from public.listing_certificates where listing_id=${listingId}`,
     ).toHaveLength(3);
 
+    // A category conversion is explicit even when every historical credential
+    // is ineligible and both the initial and submitted selections are empty.
+    const linuxReview = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", { name: linux.title, exact: true }),
+    });
+    await linuxReview
+      .getByLabel("Resultado da análise")
+      .selectOption("rejected");
+    await linuxReview
+      .getByLabel("Motivo da rejeição")
+      .fill("Revisão fictícia para testar conversão explícita.");
+    await linuxReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(linuxReview.getByText(/Status: rejected/)).toBeVisible();
+    await expectVisibleCredentials([]);
     await page.goto(`${listingUrl}/editar`);
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
     await page
       .getByLabel("Categoria", { exact: true })
       .selectOption({ label: "Livros" });
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "replace",
+    );
     await expect(
       page.getByRole("group", {
         name: "Credenciais relacionadas ao serviço",
@@ -1018,6 +1093,15 @@ test("service selects up to three ordered credentials and hides each invalidated
     expect(
       await f.sql`select certificate_id from public.listing_certificates where listing_id=${listingId}`,
     ).toHaveLength(0);
+
+    await staff.reload();
+    await linuxReview
+      .getByLabel("Resultado da análise")
+      .selectOption("verified");
+    await linuxReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(linuxReview.getByText(/Status: verified/)).toBeVisible();
 
     // Returning to a service permits a new explicit selection, including none.
     await page.goto(`${listingUrl}/editar`);

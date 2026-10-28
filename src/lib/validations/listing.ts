@@ -68,6 +68,7 @@ export const listingSchema = z.object({
       "Não repita credenciais.",
     )
     .default([]),
+  preserve_credentials: z.boolean().default(false),
 });
 const optionalId = z.preprocess(
   (v) => (v === "" ? undefined : v),
