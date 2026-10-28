@@ -51,6 +51,28 @@ where l.certificate_id is distinct from (
 comment on column public.listings.certificate_id is
  'Deprecated database-maintained projection of the first historical listing_certificates row. The junction is authoritative; legacy writes are adapted atomically only when unambiguous.';
 
+create function private.require_listing_certificate_read_committed() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ -- An authenticated transaction opened before the migration must not use an
+ -- old repeatable snapshot which cannot see the newly backfilled junction.
+ -- Statement triggers also cover a DELETE that sees zero rows in that snapshot.
+ -- Application requests use READ COMMITTED; privileged migration snapshots are
+ -- unaffected. Do not silently accept a credential write in another isolation.
+ if current_setting('role',true)='authenticated'
+ and current_setting('transaction_isolation')<>'read committed' then
+  raise exception 'Credential writes require read committed isolation' using errcode='23514';
+ end if;
+ return null;
+end $$;
+revoke all on function private.require_listing_certificate_read_committed() from public,anon,authenticated;
+create trigger listing_00_legacy_certificate_isolation
+before insert or update of certificate_id on public.listings
+for each statement execute function private.require_listing_certificate_read_committed();
+create trigger listing_certificates_isolation
+before insert or update or delete on public.listing_certificates
+for each statement execute function private.require_listing_certificate_read_committed();
+
 create function private.guard_legacy_listing_certificate_write() returns trigger
 language plpgsql security definer set search_path='' as $$
 declare projected uuid; linked_count integer; seller uuid; service boolean;

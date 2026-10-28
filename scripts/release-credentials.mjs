@@ -85,6 +85,8 @@ async function validateSchema(connection, migrations) {
     throw new Error('Compatibility projection foreign key is not safely deferred');
   const triggers = await rows(connection, "select t.tgname,t.tgtype,t.tgenabled,c.relname as table_name,n.nspname as function_schema,p.proname as function_name,pg_get_triggerdef(t.oid) as definition from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace where not t.tgisinternal and t.tgrelid in ('public.listings'::regclass,'public.listing_certificates'::regclass)");
   for (const [name, tableName, functionName, type, column] of [
+    ['listing_00_legacy_certificate_isolation', 'listings', 'require_listing_certificate_read_committed', 22, 'certificate_id'],
+    ['listing_certificates_isolation', 'listing_certificates', 'require_listing_certificate_read_committed', 30, null],
     ['listing_00_legacy_certificate_write', 'listings', 'guard_legacy_listing_certificate_write', 23, 'certificate_id'],
     ['listing_legacy_certificate_write', 'listings', 'apply_legacy_listing_certificate_write', 21, 'certificate_id'],
     ['listing_product_certificate_cleanup', 'listings', 'clear_product_listing_certificates', 17, 'category_id'],
@@ -96,7 +98,7 @@ async function validateSchema(connection, migrations) {
       throw new Error('Compatibility trigger definition differs from the reviewed design');
   }
   const functions = [...migrations[15].sql.matchAll(/create(?:\s+or\s+replace)?\s+function\s+(private\.[a-z_]+)\(\)\s+returns\s+trigger\s+[\s\S]*?\bas\s+\$\$([\s\S]*?)\$\$;/gi)];
-  if (functions.length !== 6) throw new Error('Unexpected compatibility function inventory');
+  if (functions.length !== 7) throw new Error('Unexpected compatibility function inventory');
   for (const [, signature, source] of functions) {
     const [live] = await rows(connection, "select prosrc,prosecdef,proconfig,has_function_privilege('anon',oid,'EXECUTE') as anon_execute,has_function_privilege('authenticated',oid,'EXECUTE') as member_execute from pg_proc where oid=$1::regprocedure", [signature + '()']);
     if (!live?.prosecdef || !live.proconfig?.includes('search_path=""') || live.anon_execute || live.member_execute || canonical(live.prosrc) !== canonical(source))

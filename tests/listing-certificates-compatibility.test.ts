@@ -9,8 +9,13 @@ const profile = (n: number) =>
   `91000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 let db: PGlite, service: string, product: string;
 
-async function authenticated<T>(action: () => Promise<T>, actor = user(1)) {
-  await db.exec("begin");
+async function authenticated<T>(
+  action: () => Promise<T>,
+  actor = user(1),
+  isolation:
+    "read committed" | "repeatable read" | "serializable" = "read committed",
+) {
+  await db.exec(`begin isolation level ${isolation}`);
   try {
     await db.query("select set_config('request.jwt.claim.sub',$1,true)", [
       actor,
@@ -342,6 +347,64 @@ describe("previous application over the corrected credential schema", () => {
 });
 
 describe("new application and database protections", () => {
+  for (const isolation of ["repeatable read", "serializable"] as const) {
+    it(`rejects legacy credential writes under ${isolation} before any common field changes`, async () => {
+      const document = await certificate(),
+        id = await listing(document);
+      const before = await snapshot(id);
+      await expect(
+        authenticated(
+          () =>
+            db.query(
+              "update public.listings set title='Must roll back',certificate_id=null where id=$1",
+              [id],
+            ),
+          user(1),
+          isolation,
+        ),
+      ).rejects.toMatchObject({ code: "23514" });
+      expect(await snapshot(id)).toEqual(before);
+    });
+
+    it.each(["insert", "update", "delete", "empty delete"])(
+      `rejects junction %s under ${isolation} at statement level and rolls back prior common changes`,
+      async (operation) => {
+        const document = await certificate(),
+          extra = await certificate(),
+          id = await listing(document);
+        const before = await snapshot(id);
+        await expect(
+          authenticated(
+            async () => {
+              await db.query(
+                "update public.listings set title='Must roll back' where id=$1",
+                [id],
+              );
+              if (operation === "insert")
+                await db.query(
+                  "insert into public.listing_certificates(listing_id,certificate_id,position) values ($1,$2,1)",
+                  [id, extra],
+                );
+              else if (operation === "update")
+                await db.query(
+                  "update public.listing_certificates set position=1 where listing_id=$1",
+                  [id],
+                );
+              else
+                await db.query(
+                  "delete from public.listing_certificates where listing_id=$1",
+                  [operation === "empty delete" ? randomUUID() : id],
+                );
+            },
+            user(1),
+            isolation,
+          ),
+        ).rejects.toMatchObject({ code: "23514" });
+        expect(await snapshot(id)).toEqual(before);
+      },
+    );
+  }
+
   it("updates common fields independently and keeps the projection in selection order", async () => {
     const documents = await Promise.all([
       certificate(),
