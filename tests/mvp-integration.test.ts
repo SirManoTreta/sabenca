@@ -1000,7 +1000,7 @@ describe("multiple service credentials", () => {
         (
           await state.sql`select certificate_id from public.listings where id=${id}`
         )[0].certificate_id,
-      ).toBeNull();
+      ).toBe(selected[0] ?? null);
       // The profile remains an unrestricted catalog, not an announcement-specific selection.
       expect(
         await asUser(
@@ -1293,7 +1293,7 @@ describe("multiple service credentials", () => {
         uid(1),
         `update public.listings set certificate_id='${certificates[0]}' where id='${id}'`,
       ),
-    ).rejects.toThrow("Legacy listing credential is read-only");
+    ).rejects.toThrow("Multiple credentials require the current application");
   });
 });
 
