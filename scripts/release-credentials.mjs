@@ -34,15 +34,22 @@ async function history(connection) {
 }
 
 export async function dataSnapshot(connection) {
-  const tables = await rows(connection, "select schemaname as schema,tablename as name from pg_tables where schemaname in ('public','private','auth','storage','vault','supabase_migrations') order by 1,2");
+  const tables = await rows(connection, `select t.schemaname as schema,t.tablename as name,array_agg(a.attname::text order by a.attnum) as columns
+    from pg_tables t join pg_class c on c.oid=format('%I.%I',t.schemaname,t.tablename)::regclass
+    join pg_attribute a on a.attrelid=c.oid and a.attnum>0 and not a.attisdropped
+    where t.schemaname in ('public','private','auth','storage','vault','supabase_migrations')
+    group by t.schemaname,t.tablename order by 1,2`);
   for (const table of tables) {
-    table.columns = (await rows(connection, 'select attname from pg_attribute where attrelid=$1::regclass and attnum>0 and not attisdropped order by attnum', [`${quote(table.schema)}.${quote(table.name)}`])).map((column) => column.attname);
     // Only the database-maintained compatibility projection may change here.
     if (table.schema === 'public' && table.name === 'listings')
       table.columns = table.columns.filter((column) => !['certificate_id', 'updated_at'].includes(column));
-    table.digests = (await rows(connection, `select md5(jsonb_build_array(${table.columns.map((column) => 't.' + quote(column)).join(',')})::text) as digest from ${quote(table.schema)}.${quote(table.name)} t order by digest`)).map((record) => record.digest);
   }
-  const [{ present }] = await rows(connection, "select to_regclass('public.listing_certificates') is not null as present");
+  const proofs = await rows(connection, tables.map((table, index) =>
+    `select ${index}::int as table_index,coalesce(jsonb_agg(digest order by digest),'[]'::jsonb) as digests from
+    (select md5(jsonb_build_array(${table.columns.map((column) => 't.' + quote(column)).join(',')})::text) as digest
+     from ${quote(table.schema)}.${quote(table.name)} t) proof`).join(' union all '));
+  for (const proof of proofs) tables[proof.table_index].digests = proof.digests;
+  const present = tables.some((table) => table.schema === 'public' && table.name === 'listing_certificates');
   const associations = present
     ? await rows(connection, 'select md5(jsonb_build_array(listing_id,certificate_id,position)::text) as digest from public.listing_certificates order by digest')
     : await rows(connection, 'select md5(jsonb_build_array(id,certificate_id,0::smallint)::text) as digest from public.listings where certificate_id is not null order by digest');

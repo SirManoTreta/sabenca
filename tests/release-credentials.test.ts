@@ -163,6 +163,36 @@ it("applies only the correction on DEV and validates an already-applied batch wi
   }
 }, 30000);
 
+it("aborts before commit if migration SQL changes a preexisting business field", async () => {
+  const db = await oldDatabase();
+  try {
+    const altered = migrations.map((migration, index) =>
+      index === 15
+        ? {
+            ...migration,
+            sql:
+              migration.sql +
+              "\nupdate public.listings set title='Unexpected business change';",
+          }
+        : migration,
+    );
+    await expect(
+      applyMigrationBatch(adapter(db), altered, { environment: "PROD" }),
+    ).rejects.toThrow("Previous records changed: public.listings");
+    expect(
+      (
+        await db.query(
+          "select title,to_regclass('public.listing_certificates') as junction,(select count(*)::int from supabase_migrations.schema_migrations) as migrations from public.listings",
+        )
+      ).rows,
+    ).toEqual([
+      { title: "Serviço preservado", junction: null, migrations: 14 },
+    ]);
+  } finally {
+    await db.close();
+  }
+}, 30000);
+
 it("refuses a partially applied Production release and changed history SQL", () => {
   const records = migrations.map((migration) => ({
     version: migration.version,
