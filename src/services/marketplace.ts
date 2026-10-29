@@ -51,7 +51,7 @@ export async function listingCategories(actor: string) {
 const listingColumns = (
   sql: TransactionSql,
 ) => sql`l.id,l.title,l.description,l.price::text,l.condition,l.status,l.created_at,
- private.listing_credential(l.id) as credential,
+ private.listing_credentials(l.id) as credentials,
  jsonb_build_object('id',c.id,'name',c.name,'is_service',c.is_service) as category,
  jsonb_build_object('id',p.id,'username',p.username,'name',p.name,'course',course.name,'semester',private.visible_semester(p.id),'institution',p.institution,'avatar_url',p.avatar_url) as seller,
  coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'position',i.position,'image_url',i.image_url) order by i.position,i.id) from public.listing_images i where i.listing_id=l.id),'[]'::jsonb) as images`;
@@ -169,9 +169,11 @@ export async function getListing(id: string, own = false) {
 }
 async function ownListing(sql: TransactionSql, id: string, profileId: string) {
   idSchema.parse(id);
-  const [row] =
-    await sql`select id from public.listings where id=${id} and seller_id=${profileId} for update`;
+  const [row] = await sql<
+    { id: string; category_id: string }[]
+  >`select id,category_id from public.listings where id=${id} and seller_id=${profileId} for update`;
   if (!row) throw new MarketplaceError(unavailable);
+  return row;
 }
 export async function saveListingData(
   actor: string,
@@ -180,7 +182,7 @@ export async function saveListingData(
 ) {
   const parsed = listingSchema.parse(input);
   return withMember(actor, async (sql, profileId) => {
-    if (id) await ownListing(sql, id, profileId);
+    const previous = id ? await ownListing(sql, id, profileId) : undefined;
     const [category] = await sql<
       Category[]
     >`select id,name,is_service from public.categories where id=${parsed.category_id}`;
@@ -194,23 +196,41 @@ export async function saveListingData(
         error instanceof Error ? error.message : "Revise o anúncio.",
       );
     }
-    if (values.certificate_id) {
-      const [eligible] =
-        await sql`select id from public.profile_certificates c where id=${values.certificate_id}
-        and user_id=${actor} and status='verified'
-        and issue_date<=(now() at time zone 'America/Sao_Paulo')::date
-        and (expiration_date is null or expiration_date>=(now() at time zone 'America/Sao_Paulo')::date)
-        and (private.valid_https_url(verification_url) or exists(select 1 from storage.objects where bucket_id='certificates' and name=c.file_path)) for share of c`;
-      if (!eligible)
+    const preserveCredentials = !!id && values.preserve_credentials;
+    if (
+      preserveCredentials &&
+      previous &&
+      previous.category_id !== category.id
+    ) {
+      const [current] = await sql<
+        { is_service: boolean }[]
+      >`select is_service from public.categories where id=${previous.category_id}`;
+      if (!current || current.is_service !== category.is_service)
         throw new MarketplaceError(
-          "Credencial indisponível. Selecione um certificado seu, verificado e válido, ou nenhuma credencial.",
+          "O anúncio mudou. Reabra o formulário antes de salvar.",
+        );
+    }
+    if (!preserveCredentials && values.certificate_ids.length) {
+      const eligible =
+        await sql`select id from public.profile_certificates c where id in ${sql(values.certificate_ids)}
+        and user_id=${actor} and private.own_listing_certificate_eligible(c.id) for share of c`;
+      if (eligible.length !== values.certificate_ids.length)
+        throw new MarketplaceError(
+          "Credencial indisponível. Selecione até 3 certificados seus, verificados e válidos, ou nenhuma credencial.",
         );
     }
     const listingId = id ?? crypto.randomUUID();
     if (id)
-      await sql`update public.listings set title=${values.title},description=${values.description},price=${values.price}::numeric,category_id=${values.category_id},condition=${values.condition},certificate_id=${values.certificate_id ?? null} where id=${id} and seller_id=${profileId}`;
+      await sql`update public.listings set title=${values.title},description=${values.description},price=${values.price}::numeric,category_id=${values.category_id},condition=${values.condition} where id=${id} and seller_id=${profileId}`;
     else
-      await sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition,certificate_id,status) values (${listingId},${profileId},${values.title},${values.description},${values.price}::numeric,${values.category_id},${values.condition},${values.certificate_id ?? null},'inactive')`;
+      await sql`insert into public.listings(id,seller_id,title,description,price,category_id,condition,status) values (${listingId},${profileId},${values.title},${values.description},${values.price}::numeric,${values.category_id},${values.condition},'inactive')`;
+    // A common edit must retain historical or concurrently added associations.
+    // An explicit category conversion still clears them through the database.
+    if (preserveCredentials) return listingId;
+    // The parent lock above serializes edits; metadata and the entire ordered set commit together.
+    await sql`delete from public.listing_certificates where listing_id=${listingId}`;
+    for (const [position, certificateId] of values.certificate_ids.entries())
+      await sql`insert into public.listing_certificates(listing_id,certificate_id,position) values (${listingId},${certificateId},${position})`;
     return listingId;
   });
 }

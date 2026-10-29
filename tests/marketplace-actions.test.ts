@@ -57,6 +57,8 @@ it("derives seller from authenticated identity, strips forged fields and revalid
       price: "45.50",
       category_id: id,
       condition: "used",
+      certificate_ids: [],
+      preserve_credentials: false,
     },
     undefined,
   );
@@ -66,6 +68,102 @@ it("derives seller from authenticated identity, strips forged fields and revalid
     ["/users/[username]", "page"],
   ]);
 });
+it("collects the complete credential selection in submitted order and ignores legacy or forged ownership fields", async () => {
+  const form = listing();
+  form.set("condition", "not_applicable");
+  const ids = [
+    "70000000-0000-4000-8000-000000000003",
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000002",
+  ];
+  for (const certificate of ids) form.append("certificate_ids", certificate);
+  form.set("certificate_id", "70000000-0000-4000-8000-000000000099");
+  expect((await saveListing({}, form)).id).toBe(id);
+  expect(mocks.save).toHaveBeenCalledExactlyOnceWith(
+    id,
+    {
+      title: "Livro de cálculo",
+      description: "Livro em bom estado.",
+      price: "45.50",
+      category_id: id,
+      condition: "not_applicable",
+      certificate_ids: ids,
+      preserve_credentials: false,
+    },
+    undefined,
+  );
+});
+it.each(["preserve", "replace"])(
+  "derives edit intent %s on the server and ignores a forged preservation flag",
+  async (intent) => {
+    const form = listing();
+    form.set("id", id);
+    form.set("condition", "not_applicable");
+    form.set("credential_intent", intent);
+    form.set("preserve_credentials", intent === "preserve" ? "false" : "true");
+    form.append("certificate_ids", "70000000-0000-4000-8000-000000000003");
+    expect((await saveListing({}, form)).success).toBe("Anúncio salvo.");
+    expect(mocks.save).toHaveBeenCalledExactlyOnceWith(
+      id,
+      expect.objectContaining({
+        certificate_ids: ["70000000-0000-4000-8000-000000000003"],
+        preserve_credentials: intent === "preserve",
+      }),
+      id,
+    );
+  },
+);
+it.each([undefined, "", "false", "invalid"])(
+  "rejects an old edit form with missing or invalid intent %s before any partial write",
+  async (intent) => {
+    const form = listing();
+    form.set("id", id);
+    form.set("preserve_credentials", "false");
+    if (intent !== undefined) form.set("credential_intent", intent);
+    expect(await saveListing({}, form)).toEqual({
+      error: "Reabra o formulário para confirmar a seleção de credenciais.",
+    });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  },
+);
+it("rejects ambiguous duplicate intent fields and preserve intent on creation", async () => {
+  const edit = listing();
+  edit.set("id", id);
+  edit.append("credential_intent", "preserve");
+  edit.append("credential_intent", "replace");
+  const create = listing();
+  create.set("credential_intent", "preserve");
+  for (const form of [edit, create])
+    expect((await saveListing({}, form)).error).toBe(
+      "Reabra o formulário para confirmar a seleção de credenciais.",
+    );
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.refresh).not.toHaveBeenCalled();
+});
+it.each([
+  [
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000002",
+    "70000000-0000-4000-8000-000000000003",
+    "70000000-0000-4000-8000-000000000004",
+  ],
+  [
+    "70000000-0000-4000-8000-000000000001",
+    "70000000-0000-4000-8000-000000000001",
+  ],
+  ["forged"],
+])(
+  "rejects an invalid multi-credential form before persistence: %j",
+  async (...ids) => {
+    const form = listing();
+    for (const certificate of ids) form.append("certificate_ids", certificate);
+    const result = await saveListing({}, form);
+    expect(result.error).toBeTruthy();
+    expect(result.fields?.certificate_ids?.length).toBeGreaterThan(0);
+    expect(mocks.save).not.toHaveBeenCalled();
+  },
+);
 it("validates all public action entry points before writes", async () => {
   for (const action of [
     saveListing,

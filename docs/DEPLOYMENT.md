@@ -47,6 +47,8 @@ Fixtures validam o projeto DEV, criam dados sintéticos e removem somente os pr�
 
 ## Promoção autorizada
 
+Para a evolução de múltiplas credenciais, seguir o [procedimento de compatibilidade](RELEASE_CREDENCIAIS_COMPATIBILIDADE.md): PROD deve passar de 14 para 16 migrations aplicando a original e a correção em **uma única transação** pelo executor versionado. Não aplicar a migration `20261027191347` isoladamente enquanto a versão antiga atende requisições. DEV recebe somente a correção, de 15 para 16. As verificações e limitações específicas de rollback desse procedimento prevalecem sobre a sequência genérica abaixo.
+
 1. Aplicar migrations somente ao DEV, executar suíte completa e validar Preview.
 2. Publicar `develop` e abrir PR para `main` com mudanças, riscos e rollback.
 3. **Aguardar autorização explícita de merge.**

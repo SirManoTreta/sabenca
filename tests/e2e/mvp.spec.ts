@@ -561,7 +561,10 @@ test("service credential, optional contact, invalidation and actual listing mode
       .getByLabel("Categoria", { exact: true })
       .selectOption({ label: "Livros" });
     await expect(
-      page.getByLabel("Credencial relacionada ao serviço"),
+      page.getByRole("group", {
+        name: "Credenciais relacionadas ao serviço",
+        exact: true,
+      }),
     ).toHaveCount(0);
     await page
       .getByLabel("Categoria", { exact: true })
@@ -571,11 +574,12 @@ test("service credential, optional contact, invalidation and actual listing mode
       .getByLabel("Descrição", { exact: true })
       .fill("Serviço para estudantes com documentação analisada.");
     await page.getByLabel("Preço (R$)").fill("50,00");
-    const [cert] =
-      await f.sql`select id from public.profile_certificates where user_id=${f.a.userId} and title=${certificateTitle}`;
     await page
-      .getByLabel("Credencial relacionada ao serviço")
-      .selectOption(cert.id);
+      .getByRole("checkbox", {
+        name: `${certificateTitle} — Instituição de teste`,
+        exact: true,
+      })
+      .check();
     await page
       .getByRole("button", { name: "Publicar anúncio", exact: true })
       .click();
@@ -583,8 +587,11 @@ test("service credential, optional contact, invalidation and actual listing mode
     const listingUrl = new URL(page.url()).pathname;
     await page.goto(`${listingUrl}/editar`);
     await expect(
-      page.getByLabel("Credencial relacionada ao serviço"),
-    ).toHaveValue(cert.id);
+      page.getByRole("checkbox", {
+        name: `${certificateTitle} — Instituição de teste`,
+        exact: true,
+      }),
+    ).toBeChecked();
     await page
       .getByRole("button", { name: "Salvar alterações", exact: true })
       .click();
@@ -763,5 +770,353 @@ test("administrator updates academic semester without changing student identity"
     await expect(studentPage.getByText(/9º semestre/)).toBeVisible();
   } finally {
     await context.close();
+  }
+});
+
+test("service selects up to three ordered credentials and hides each invalidated document independently", async ({
+  page,
+  browser,
+  fixture: f,
+}) => {
+  test.setTimeout(360000);
+  const certificates = [
+    { id: randomUUID(), title: `Linux Essentials ${f.token}`, issuer: "Cisco" },
+    {
+      id: randomUUID(),
+      title: `Fundamentos de Redes ${f.token}`,
+      issuer: "Cisco",
+    },
+    {
+      id: randomUUID(),
+      title: `Docker Foundations ${f.token}`,
+      issuer: "Docker",
+    },
+    {
+      id: randomUUID(),
+      title: `Python Essentials ${f.token}`,
+      issuer: "Cisco",
+    },
+  ];
+  // Only this test's DEV members and certificates are seeded. The review UI and
+  // its evidence requirements remain covered by the lifecycle test above.
+  for (const certificate of certificates)
+    await f.sql`insert into public.profile_certificates(id,user_id,title,issuer,issue_date,verification_url,status,verified_at,verified_by)
+      values (${certificate.id},${f.a.userId},${certificate.title},${certificate.issuer},'2026-01-01',${`https://example.test/${certificate.id}`},'verified',now(),${f.staff.userId})`;
+  const [linux, networks, docker, python] = certificates;
+  let listingTitle = `Configuração de servidores Linux ${f.token}`;
+  const peerContext = await browser.newContext(),
+    peer = await peerContext.newPage();
+  const staffContext = await browser.newContext(),
+    staff = await staffContext.newPage();
+  let listingUrl = "";
+  const checkbox = (certificate: (typeof certificates)[number]) =>
+    page.getByRole("checkbox", {
+      name: `${certificate.title} — ${certificate.issuer}`,
+      exact: true,
+    });
+  const badge = (target: Page, plural: boolean) =>
+    target.getByText(
+      plural
+        ? "Credenciais verificadas pelo SABENÇA"
+        : "Credencial verificada pelo SABENÇA",
+      { exact: true },
+    );
+  async function saveEdit() {
+    await page
+      .getByRole("button", { name: "Salvar alterações", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`${listingUrl}$`));
+  }
+  async function expectVisibleCredentials(
+    expected: (typeof certificates)[number][],
+  ) {
+    await peer.goto(listingUrl);
+    await expect(
+      peer.getByRole("heading", { name: listingTitle, exact: true }),
+    ).toBeVisible();
+    await expect(badge(peer, false)).toHaveCount(expected.length === 1 ? 1 : 0);
+    await expect(badge(peer, true)).toHaveCount(expected.length > 1 ? 1 : 0);
+    const credentialHeadings = peer
+      .getByRole("heading", { level: 3 })
+      .filter({ hasText: f.token });
+    await expect(credentialHeadings).toHaveText(expected.map((c) => c.title));
+    for (const certificate of certificates)
+      if (!expected.includes(certificate))
+        await expect(
+          peer.getByRole("heading", {
+            name: certificate.title,
+            exact: true,
+          }),
+        ).toHaveCount(0);
+  }
+  try {
+    await login(page, f.a);
+    await login(peer, f.b);
+    await peer.goto(`/users/${f.a.username}`);
+    for (const certificate of certificates)
+      await expect(
+        peer.getByRole("heading", { name: certificate.title, exact: true }),
+      ).toBeVisible();
+    await expect(
+      peer.getByText("Documento verificado pelo SABENÇA", { exact: true }),
+    ).toHaveCount(4);
+
+    await page.goto("/marketplace/novo");
+    await page
+      .getByLabel("Categoria", { exact: true })
+      .selectOption({ label: "Serviços" });
+    await page.getByLabel("Título do anúncio").fill(listingTitle);
+    await page
+      .getByLabel("Descrição", { exact: true })
+      .fill(
+        "Serviço fictício de configuração e manutenção de servidores Linux.",
+      );
+    await page.getByLabel("Preço (R$)").fill("80,00");
+    await expect(
+      page.getByText("0 de 3 selecionadas", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Publicar anúncio", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/marketplace\/[a-f0-9-]{36}$/);
+    listingUrl = new URL(page.url()).pathname;
+    const listingId = listingUrl.split("/").pop()!;
+    await expectVisibleCredentials([]);
+
+    await page.goto(`${listingUrl}/editar`);
+    await checkbox(linux).check();
+    await expect(
+      page.getByText("1 de 3 selecionadas", { exact: true }),
+    ).toBeVisible();
+    await saveEdit();
+    await expectVisibleCredentials([linux]);
+
+    await page.goto(`${listingUrl}/editar`);
+    await expect(checkbox(linux)).toBeChecked();
+    await checkbox(networks).check();
+    await checkbox(docker).check();
+    await expect(
+      page.getByText("3 de 3 selecionadas", { exact: true }),
+    ).toBeVisible();
+    await expect(checkbox(python)).toBeDisabled();
+    await expect(checkbox(python)).not.toBeChecked();
+    await saveEdit();
+    await expectVisibleCredentials([linux, networks, docker]);
+    expect(
+      await f.sql`select certificate_id,position from public.listing_certificates where listing_id=${listingId} order by position`,
+    ).toEqual([
+      { certificate_id: linux.id, position: 0 },
+      { certificate_id: networks.id, position: 1 },
+      { certificate_id: docker.id, position: 2 },
+    ]);
+    for (const width of [360, 1440]) {
+      await peer.setViewportSize({ width, height: 900 });
+      await fits(peer);
+      await peer.screenshot({
+        path: test.info().outputPath(`service-three-credentials-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+    }
+    const body = await peer.locator("body").textContent();
+    for (const privateValue of [
+      "file_path",
+      f.staff.userId,
+      f.a.email,
+      f.a.studentId,
+    ])
+      expect(body).not.toContain(privateValue);
+
+    // Editing restores the selected set and keeps the fourth option available
+    // again when one is removed. Received selection order is persisted.
+    await page.goto(`${listingUrl}/editar`);
+    for (const certificate of [linux, networks, docker])
+      await expect(checkbox(certificate)).toBeChecked();
+    await checkbox(docker).uncheck();
+    await expect(
+      page.getByText("2 de 3 selecionadas", { exact: true }),
+    ).toBeVisible();
+    await expect(checkbox(python)).toBeEnabled();
+    await checkbox(python).check();
+    await expect(
+      page.getByText("3 de 3 selecionadas", { exact: true }),
+    ).toBeVisible();
+    await checkbox(python).uncheck();
+    await saveEdit();
+    await expectVisibleCredentials([linux, networks]);
+    await page.goto(`${listingUrl}/editar`);
+    await checkbox(docker).check();
+    await saveEdit();
+    await expectVisibleCredentials([linux, networks, docker]);
+
+    // An administrative invalidation must remain historical when the owner
+    // edits only common fields; unchanged checkboxes express preserve intent.
+    await login(staff, f.staff, true);
+    await staff.goto("/admin/certificados");
+    const dockerReview = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", { name: docker.title, exact: true }),
+    });
+    await dockerReview
+      .getByLabel("Resultado da análise")
+      .selectOption("rejected");
+    await dockerReview
+      .getByLabel("Motivo da rejeição")
+      .fill("Revisão administrativa fictícia para testar preservação.");
+    await dockerReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(dockerReview.getByText(/Status: rejected/)).toBeVisible();
+    await expectVisibleCredentials([linux, networks]);
+    const preservedLinks =
+      await f.sql`select certificate_id,position,created_at from public.listing_certificates where listing_id=${listingId} order by position`;
+    expect(preservedLinks).toHaveLength(3);
+    await page.goto(`${listingUrl}/editar`);
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
+    const revisedTitle = `${listingTitle} revisado`;
+    await page.getByLabel("Título do anúncio").fill(revisedTitle);
+    await page.getByLabel("Preço (R$)").fill("95,00");
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
+    await saveEdit();
+    listingTitle = revisedTitle;
+    await expectVisibleCredentials([linux, networks]);
+    expect(
+      await f.sql`select certificate_id,position,created_at from public.listing_certificates where listing_id=${listingId} order by position`,
+    ).toEqual(preservedLinks);
+    expect(
+      (
+        await f.sql`select title,price::text from public.listings where id=${listingId}`
+      )[0],
+    ).toEqual({ title: revisedTitle, price: "95.00" });
+    // Restore this synthetic review so the existing owner-invalidation and
+    // explicit checkbox-removal flows below retain their original coverage.
+    await staff.reload();
+    await dockerReview
+      .getByLabel("Resultado da análise")
+      .selectOption("verified");
+    await dockerReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(dockerReview.getByText(/Status: verified/)).toBeVisible();
+    await expectVisibleCredentials([linux, networks, docker]);
+
+    // Owner edits invalidate only Docker; its historical association remains.
+    await page.goto("/profile/certificados");
+    const dockerDocument = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: docker.title, exact: true }),
+    });
+    await dockerDocument
+      .getByText("Editar certificado", { exact: true })
+      .click();
+    await dockerDocument
+      .getByLabel("Código da credencial (opcional)")
+      .fill(`revisao-${f.token}`);
+    await dockerDocument
+      .getByRole("button", { name: "Salvar certificado", exact: true })
+      .click();
+    await expect(
+      dockerDocument.getByText("Status: Pendente de análise", { exact: true }),
+    ).toBeVisible();
+    await expectVisibleCredentials([linux, networks]);
+    expect(
+      await f.sql`select certificate_id from public.listing_certificates where listing_id=${listingId} order by position`,
+    ).toEqual([
+      { certificate_id: linux.id },
+      { certificate_id: networks.id },
+      { certificate_id: docker.id },
+    ]);
+
+    // A reviewed, evidenced document can expire independently of review status.
+    const networkDocument = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: networks.title, exact: true }),
+    });
+    await networkDocument
+      .getByText("Editar certificado", { exact: true })
+      .click();
+    await networkDocument.getByLabel("Validade (opcional)").fill("2026-01-02");
+    await networkDocument
+      .getByRole("button", { name: "Salvar certificado", exact: true })
+      .click();
+    await expect(
+      networkDocument.getByText("Status: Pendente de análise", { exact: true }),
+    ).toBeVisible();
+    await staff.goto("/admin/certificados");
+    const review = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", { name: networks.title, exact: true }),
+    });
+    await review
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(review.getByText(/Status: verified/)).toBeVisible();
+    await expectVisibleCredentials([linux]);
+    expect(
+      await f.sql`select certificate_id from public.listing_certificates where listing_id=${listingId}`,
+    ).toHaveLength(3);
+
+    // A category conversion is explicit even when every historical credential
+    // is ineligible and both the initial and submitted selections are empty.
+    const linuxReview = staff.getByRole("article").filter({
+      has: staff.getByRole("heading", { name: linux.title, exact: true }),
+    });
+    await linuxReview
+      .getByLabel("Resultado da análise")
+      .selectOption("rejected");
+    await linuxReview
+      .getByLabel("Motivo da rejeição")
+      .fill("Revisão fictícia para testar conversão explícita.");
+    await linuxReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(linuxReview.getByText(/Status: rejected/)).toBeVisible();
+    await expectVisibleCredentials([]);
+    await page.goto(`${listingUrl}/editar`);
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "preserve",
+    );
+    await page
+      .getByLabel("Categoria", { exact: true })
+      .selectOption({ label: "Livros" });
+    await expect(page.locator('input[name="credential_intent"]')).toHaveValue(
+      "replace",
+    );
+    await expect(
+      page.getByRole("group", {
+        name: "Credenciais relacionadas ao serviço",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await saveEdit();
+    await expectVisibleCredentials([]);
+    expect(
+      await f.sql`select certificate_id from public.listing_certificates where listing_id=${listingId}`,
+    ).toHaveLength(0);
+
+    await staff.reload();
+    await linuxReview
+      .getByLabel("Resultado da análise")
+      .selectOption("verified");
+    await linuxReview
+      .getByRole("button", { name: "Registrar análise", exact: true })
+      .click();
+    await expect(linuxReview.getByText(/Status: verified/)).toBeVisible();
+
+    // Returning to a service permits a new explicit selection, including none.
+    await page.goto(`${listingUrl}/editar`);
+    await page
+      .getByLabel("Categoria", { exact: true })
+      .selectOption({ label: "Serviços" });
+    await checkbox(linux).check();
+    await saveEdit();
+    await expectVisibleCredentials([linux]);
+    await page.goto(`${listingUrl}/editar`);
+    await checkbox(linux).uncheck();
+    await saveEdit();
+    await expectVisibleCredentials([]);
+  } finally {
+    await peerContext.close();
+    await staffContext.close();
   }
 });

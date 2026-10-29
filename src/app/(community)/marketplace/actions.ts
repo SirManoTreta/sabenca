@@ -30,26 +30,35 @@ export async function saveListing(
   form: FormData,
 ): Promise<MarketplaceState> {
   const { user } = await requireUser();
-  const input = listingSchema.safeParse(
-    Object.fromEntries(
-      [
-        "title",
-        "description",
-        "price",
-        "category_id",
-        "condition",
-        "certificate_id",
-      ].map((k) => [k, form.get(k)]),
+  const id = form.get("id");
+  if (id && !idSchema.safeParse(id).success)
+    return { error: "Anúncio inválido." };
+  const intents = form.getAll("credential_intent");
+  const intent = intents[0];
+  if (
+    intents.length > 1 ||
+    (intent !== undefined && intent !== "preserve" && intent !== "replace") ||
+    (!!id && intent === undefined) ||
+    (!id && intent === "preserve")
+  )
+    return {
+      error: "Reabra o formulário para confirmar a seleção de credenciais.",
+    };
+  const input = listingSchema.safeParse({
+    ...Object.fromEntries(
+      ["title", "description", "price", "category_id", "condition"].map((k) => [
+        k,
+        form.get(k),
+      ]),
     ),
-  );
+    certificate_ids: form.getAll("certificate_ids"),
+    preserve_credentials: !!id && intent === "preserve",
+  });
   if (!input.success)
     return {
       error: "Revise os campos indicados.",
       fields: z.flattenError(input.error).fieldErrors,
     };
-  const id = form.get("id");
-  if (id && !idSchema.safeParse(id).success)
-    return { error: "Anúncio inválido." };
   try {
     const saved = await saveListingData(
       user.id,

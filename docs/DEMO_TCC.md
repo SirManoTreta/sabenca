@@ -26,9 +26,9 @@ Para demonstrar a integração final do experimento:
 
 1. Enviar um certificado fictício com arquivo ou URL HTTPS de verificação e aprová-lo na sessão administrativa.
 2. Em Perfil > Privacidade, preencher um link de contato fictício/autorizado e marcar o consentimento de exibição.
-3. Criar um anúncio na categoria Serviços e selecionar a credencial relacionada. Criar outro serviço com “Nenhuma credencial” para comparar os dois estados.
-4. Na sessão de outro aluno, abrir o serviço e mostrar vendedor, curso, semestre autorizado, instituição, credencial analisada e botão “Entrar em contato”. O original permanece privado.
-5. Editar o certificado e atualizar o anúncio na outra sessão: a credencial deixa de aparecer enquanto a documentação está pendente. Para mostrar expiração, usar documento histórico com validade vencida e observar o rótulo de expiração no Perfil.
+3. Com quatro certificados verificados fictícios, criar um anúncio na categoria Serviços e selecionar até três credenciais relacionadas, na ordem desejada. Mostrar o contador e a quarta opção desabilitada. Criar outro serviço sem marcar credenciais para comparar os estados.
+4. Na sessão de outro aluno, abrir o serviço e mostrar vendedor, curso, semestre autorizado, instituição, as três credenciais analisadas e botão “Entrar em contato”. O original permanece privado. O Perfil continua mostrando todos os certificados verificados, sem o limite de três.
+5. Editar um dos certificados e atualizar o anúncio na outra sessão: apenas essa credencial deixa de aparecer enquanto a documentação está pendente; as outras permanecem. Para mostrar expiração, usar documento histórico com validade vencida e observar o rótulo de expiração no Perfil. Ao editar o anúncio, demonstrar remoção/adição de credenciais e a limpeza da seleção ao trocar de serviço para produto.
 6. Denunciar o anúncio na sessão do comprador. Na administração, abrir “Consultar conteúdo denunciado”, confirmar e usar “Desativar anúncio denunciado”. O comprador deixa de acessar a oferta e o vendedor não consegue republicá-la pelo controle de status.
 7. Opcionalmente, em Alunos cadastrados, usar “Atualizar curso e semestre” em um aluno fictício e conferir a atualização no Perfil/Marketplace.
 
